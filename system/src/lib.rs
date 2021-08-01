@@ -1,7 +1,7 @@
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
+use common::ReadSeek;
+
+pub mod gb;
+
+pub trait System {
+    fn detect<F: ReadSeek>(filename: &str, file: &mut F) -> bool;
 }
