@@ -15,6 +15,7 @@ pub trait System {}
 macro_rules! init_loaders_array{
     [$($loader:expr => $name:literal),*] => {
         {
+            #[allow(unused_mut)]
             let mut vec = Vec::<&'static (dyn FileLoader + Sync)>::new();
             $({
                 #[cfg(feature=$name)]
