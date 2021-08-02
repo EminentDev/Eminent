@@ -7,3 +7,6 @@ edition = "2018"
 
 [dependencies]
 system = { path = "../system" }
+
+[features]
+default = ["system/default-systems"]
