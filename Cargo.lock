@@ -1172,6 +1172,9 @@ dependencies = [
 [[package]]
 name = "processor"
 version = "0.1.0"
+dependencies = [
+ "common",
+]
 
 [[package]]
 name = "profiling"
@@ -1378,6 +1381,8 @@ name = "system"
 version = "0.1.0"
 dependencies = [
  "common",
+ "lazy_static",
+ "processor",
 ]
 
 [[package]]

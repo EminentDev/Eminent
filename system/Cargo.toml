@@ -7,3 +7,9 @@ edition = "2018"
 
 [dependencies]
 common = { path = "../common" }
+processor = { path = "../processor"}
+lazy_static = "1.4.0"
+
+[features]
+nes = ["processor/m6502x"]
+gb = ["processor/z80]

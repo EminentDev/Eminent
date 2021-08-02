@@ -1,6 +1,8 @@
 use common::ReadSeek;
 
+#[cfg(feature = "gb")]
 pub mod gb;
+#[cfg(feature = "nes")]
 pub mod nes;
 
 pub trait FileLoader {
@@ -10,12 +12,32 @@ pub trait FileLoader {
 
 pub trait System {}
 
-const LOADERS: [&dyn FileLoader; 2] = [&gb::GbFileLoader {}, &nes::NesFileLoader {}];
+macro_rules! init_loaders_array{
+    [$($loader:expr => $name:literal),*] => {
+        {
+            let mut vec = Vec::<&'static (dyn FileLoader + Sync)>::new();
+            $({
+                #[cfg(feature=$name)]
+                {
+                    vec.push(& $loader)
+                }
+            })*
+            vec
+        }
+    };
+}
 
-pub fn get_file_loader(filename: &str, file: &mut dyn ReadSeek) -> Option<&'static dyn FileLoader> {
-    for loader in LOADERS {
+lazy_static::lazy_static! {
+    static ref LOADERS: Vec<&'static (dyn FileLoader + Sync)> = init_loaders_array![nes::NesFileLoader{} => "nes", gb::GbFileLoader{} => "gb"];
+}
+
+pub fn get_file_loader(
+    filename: &str,
+    file: &mut dyn ReadSeek,
+) -> Option<&'static (dyn FileLoader + Sync)> {
+    for loader in &*LOADERS {
         if loader.can_load(filename, file) {
-            return Some(loader);
+            return Some(*loader);
         }
     }
     None
