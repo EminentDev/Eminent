@@ -3,6 +3,7 @@
 members = [
     "common",
     "processor",
+    "render",
     "system",
     "ui"
 ]
