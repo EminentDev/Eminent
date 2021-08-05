@@ -56,7 +56,15 @@ impl<'a, F, const WIDTH: usize> Bus<'a, F, WIDTH> {
         (None, &*self.bus_state)
     }
 
-    pub fn write(&mut self, _addr: usize, _value: &[u8; WIDTH]) -> Option<F> {
+    pub fn write(&mut self, addr: usize, value: &[u8; WIDTH]) -> Option<F> {
+        for (device, transform) in &mut self.devices {
+            if let Some(addr) = transform.transform(addr) {
+                let fault = device.write(addr, value);
+                if let Some(fault) = fault {
+                    return Some(fault); // Temporary
+                }
+            }
+        }
         None
     }
 
