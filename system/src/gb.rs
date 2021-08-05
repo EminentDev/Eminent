@@ -8,17 +8,7 @@ impl FileLoader for GbFileLoader {
         false // Temporary
     }
 
-    fn load(&self, file: &mut dyn ReadSeek) -> Box<dyn System> {
-        Box::from(GbSystem::from_rom(file))
+    fn load(&self, _: &mut dyn ReadSeek) -> System {
+        System { processors: Vec::new(), schedule: vec![0; 1], clocks_per_second: 4_194_304, cycle: 0 }
     }
 }
-
-pub struct GbSystem {}
-
-impl GbSystem {
-    fn from_rom(_: &mut dyn ReadSeek) -> GbSystem {
-        GbSystem {}
-    }
-}
-
-impl System for GbSystem {}

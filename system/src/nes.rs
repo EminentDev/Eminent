@@ -16,17 +16,7 @@ impl FileLoader for NesFileLoader {
         buf[0] == b'N' && buf[1] == b'E' && buf[2] == b'S' && buf[3] == 0x1A
     }
 
-    fn load(&self, file: &mut dyn ReadSeek) -> Box<dyn System> {
-        Box::from(NesSystem::from_rom(file))
+    fn load(&self, _: &mut dyn ReadSeek) -> System {
+        System { processors: Vec::new(), schedule: vec![0; 1], clocks_per_second: 21_477_272, cycle: 0 }
     }
 }
-
-pub struct NesSystem {}
-
-impl NesSystem {
-    fn from_rom(_: &mut dyn ReadSeek) -> NesSystem {
-        NesSystem {}
-    }
-}
-
-impl System for NesSystem {}
