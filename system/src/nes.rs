@@ -17,6 +17,11 @@ impl FileLoader for NesFileLoader {
     }
 
     fn load(&self, _: &mut dyn ReadSeek) -> System {
-        System { processors: Vec::new(), schedule: vec![0; 1], clocks_per_second: 21_477_272, cycle: 0 }
+        System {
+            processors: Vec::new(),
+            schedule: vec![0; 1],
+            clocks_per_second: 21_477_272,
+            cycle: 0,
+        }
     }
 }

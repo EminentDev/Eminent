@@ -9,6 +9,11 @@ impl FileLoader for GbFileLoader {
     }
 
     fn load(&self, _: &mut dyn ReadSeek) -> System {
-        System { processors: Vec::new(), schedule: vec![0; 1], clocks_per_second: 4_194_304, cycle: 0 }
+        System {
+            processors: Vec::new(),
+            schedule: vec![0; 1],
+            clocks_per_second: 4_194_304,
+            cycle: 0,
+        }
     }
 }
