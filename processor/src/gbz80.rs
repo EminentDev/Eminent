@@ -1,8 +1,7 @@
-use common::ReadSeek;
 use crate::Processor;
+use common::ReadSeek;
 
-pub struct GbZ80 {
-}
+pub struct GbZ80 {}
 
 impl GbZ80 {
     pub fn new(_: &mut dyn ReadSeek) -> GbZ80 {
