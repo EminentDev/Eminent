@@ -12,6 +12,6 @@ lazy_static = "1.4.0"
 
 [features]
 nes = ["processor/m6502x"]
-gb = ["processor/z80"]
+gb = ["processor/gbz80"]
 default-systems = ["nes","gb"]
 all-systems = ["default-systems"]

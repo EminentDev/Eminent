@@ -6,6 +6,7 @@ fn main() -> std::io::Result<()> {
     let filename = &args[1];
     let mut file = File::open(filename)?;
     let loader = system::get_file_loader(filename, &mut file).unwrap();
-    let _ = loader.load(&mut file);
+    let mut system = loader.load(&mut file);
+    system.tick();
     Ok(())
 }
