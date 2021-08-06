@@ -1,11 +1,13 @@
 use crate::{FileLoader, System};
 use common::ReadSeek;
+use std::path::Path;
+use std::ffi::OsStr;
 
 pub struct GbFileLoader {}
 
 impl FileLoader for GbFileLoader {
-    fn can_load(&self, _: &str, _: &mut dyn ReadSeek) -> bool {
-        false // Temporary
+    fn can_load(&self, filename: &str, _: &mut dyn ReadSeek) -> bool {
+        Path::new(filename).extension().and_then(OsStr::to_str) == Some("gb")
     }
 
     fn load(&self, _: &mut dyn ReadSeek) -> System {
