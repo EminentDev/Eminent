@@ -1,7 +1,7 @@
 use crate::{FileLoader, System};
 use common::ReadSeek;
-use std::path::Path;
 use std::ffi::OsStr;
+use std::path::Path;
 
 pub struct GbFileLoader {}
 
