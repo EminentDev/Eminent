@@ -25,6 +25,8 @@ pub struct NesSystem {}
 
 impl System for NesSystem {
     fn tick(&mut self, _: u64) {}
-    fn clock_speed(&self) -> u64 { 21_477_272 }
+    fn clock_speed(&self) -> u64 {
+        21_477_272
+    }
     fn set_clock_speed(&mut self, _: u64) {}
 }

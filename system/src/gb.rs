@@ -19,6 +19,8 @@ pub struct GbSystem {}
 
 impl System for GbSystem {
     fn tick(&mut self, _: u64) {}
-    fn clock_speed(&self) -> u64 { 4_194_304 }
+    fn clock_speed(&self) -> u64 {
+        4_194_304
+    }
     fn set_clock_speed(&mut self, _: u64) {}
 }
