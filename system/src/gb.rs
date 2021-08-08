@@ -1,6 +1,5 @@
 use crate::{FileLoader, System};
 use common::ReadSeek;
-use processor::gbz80::GbZ80;
 use std::ffi::OsStr;
 use std::path::Path;
 
@@ -11,13 +10,15 @@ impl FileLoader for GbFileLoader {
         Path::new(filename).extension().and_then(OsStr::to_str) == Some("gb")
     }
 
-    fn load(&self, file: &mut dyn ReadSeek) -> System {
-        let gbz80 = GbZ80::new(file);
-        System {
-            processors: vec![Box::new(gbz80)],
-            schedule: vec![1], // Tick the main processor every clock cycle
-            clocks_per_second: 4_194_304,
-            cycle: 0,
-        }
+    fn load(&self, _: &mut dyn ReadSeek) -> Box<dyn System> {
+        Box::new(GbSystem {})
     }
+}
+
+pub struct GbSystem {}
+
+impl System for GbSystem {
+    fn tick(&mut self, _: u64) {}
+    fn clock_speed(&self) -> u64 { 4_194_304 }
+    fn set_clock_speed(&mut self, _: u64) {}
 }

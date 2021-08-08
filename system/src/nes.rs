@@ -16,12 +16,15 @@ impl FileLoader for NesFileLoader {
         buf[0] == b'N' && buf[1] == b'E' && buf[2] == b'S' && buf[3] == 0x1A
     }
 
-    fn load(&self, _: &mut dyn ReadSeek) -> System {
-        System {
-            processors: Vec::new(),
-            schedule: vec![0; 1],
-            clocks_per_second: 21_477_272,
-            cycle: 0,
-        }
+    fn load(&self, _: &mut dyn ReadSeek) -> Box<dyn System> {
+        Box::new(NesSystem {})
     }
+}
+
+pub struct NesSystem {}
+
+impl System for NesSystem {
+    fn tick(&mut self, _: u64) {}
+    fn clock_speed(&self) -> u64 { 21_477_272 }
+    fn set_clock_speed(&mut self, _: u64) {}
 }
