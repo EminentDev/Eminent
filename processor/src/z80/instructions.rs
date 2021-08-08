@@ -145,3 +145,229 @@ pub enum Instruction {
     /// This variant is specific to this implementation of the decoding process
     UnfinishedOpcode
 }
+
+/// Mapping of the opcode tribit to an 8 bits register
+///
+/// This function truncates its argument to the three low bits before mapping.
+///
+/// # Examples
+/// ```rust
+/// use processor::z80::instructions;
+/// assert_eq!(instructions::map_register8(0b111), instructions::Operand8::A);
+/// assert_eq!(instructions::map_register8(0b1000), instructions::Operand8::B);
+/// ```
+pub fn map_register8(tribit: u8) -> Operand8 {
+    match tribit & 0b111 {
+        0b000 => Operand8::B,
+        0b001 => Operand8::C,
+        0b010 => Operand8::D,
+        0b011 => Operand8::E,
+        0b100 => Operand8::H,
+        0b101 => Operand8::L,
+        0b110 => Operand8::OneOneZero,
+        0b111 => Operand8::A,
+        _ => unreachable!()
+    }
+}
+
+/// Mapping of the opcode dibit to a 16 bits register
+///
+/// This function truncates its argument to the two low bits before mapping.
+///
+/// # Examples
+/// ```rust
+/// use processor::z80::instructions;
+/// assert_eq!(instructions::map_register16(0b11),
+///            instructions::Operand16::SP);
+/// assert_eq!(instructions::map_register16(0b110),
+///            instructions::Operand16::HL);
+/// ```
+pub fn map_register16(dibit: u8) -> Operand16 {
+    match dibit & 0b11 {
+        0b00 => Operand16::BC,
+        0b01 => Operand16::DE,
+        0b10 => Operand16::HL,
+        0b11 => Operand16::SP,
+        _ => unreachable!()
+    }
+}
+
+/// Mapping of the opcode tribit to a condition
+///
+/// This function truncates its argument to the three low bits before mapping.
+///
+/// # Examples
+/// ```rust
+/// use processor::z80::instructions;
+/// assert_eq!(instructions::map_condition(0b011), instructions::Condition::C);
+/// assert_eq!(instructions::map_condition(0b1001), instructions::Condition::Z);
+/// ```
+pub fn map_condition(tribit: u8) -> Condition {
+    match tribit & 0b111 {
+        0b000 => Condition::NZ,
+        0b001 => Condition::Z,
+        0b010 => Condition::NC,
+        0b011 => Condition::C,
+        0b100 => Condition::PO,
+        0b101 => Condition::PE,
+        0b110 => Condition::P,
+        0b111 => Condition::M,
+        _ => unreachable!()
+    }
+}
+
+/// Try to decode an instruction from a single byte.
+///
+/// Return `Some(Instruction)` if sucessful, otherwise `None`. In the latter
+/// case, more bytes may be needed.
+pub fn decode1byte(opcode: u8) -> Option<Instruction> {
+    match opcode {
+        // Non-variable prefixes for multi-byte instructions
+        0x10 | 0x18 | 0x20 | 0x22 | 0x28 | 0x2A | 0x30 | 0x32 | 0x36 | 0x38
+             | 0x3A | 0xC3 | 0xCB | 0xCD | 0xD3 | 0xDB | 0xDD | 0xED | 0xFD =>
+             None,
+
+        // Non-variable 1-byte instructions
+        0x0A =>
+            Some(Instruction::LD(Operand8::A, Operand8::Deref(Operand16::BC))),
+        0x1A =>
+            Some(Instruction::LD(Operand8::A, Operand8::Deref(Operand16::DE))),
+        0x02 =>
+            Some(Instruction::LD(Operand8::Deref(Operand16::BC), Operand8::A)),
+        0x12 =>
+            Some(Instruction::LD(Operand8::Deref(Operand16::DE), Operand8::A)),
+        0xF9 => Some(Instruction::LD16(Operand16::SP, Operand16::HL)),
+        0xEB => Some(Instruction::EX(Operand16::DE, Operand16::HL)),
+        0x08 => Some(Instruction::EX(Operand16::AF, Operand16::AFprime)),
+        0xD9 => Some(Instruction::EXX),
+        0xE3 => Some(Instruction::EX(Operand16::DerefSP, Operand16::HL)),
+        0x27 => Some(Instruction::DAA),
+        0x2F => Some(Instruction::CPL),
+        0x3F => Some(Instruction::CCF),
+        0x37 => Some(Instruction::SCF),
+        0x00 => Some(Instruction::NOP),
+        0x76 => Some(Instruction::HALT),
+        0xF3 => Some(Instruction::DI),
+        0xFB => Some(Instruction::EI),
+        0x07 => Some(Instruction::RLCA),
+        0x17 => Some(Instruction::RLA),
+        0x0F => Some(Instruction::RRCA),
+        0x1F => Some(Instruction::RRA),
+        0xE9 => Some(Instruction::JP(Operand16::HL)),
+        0xC9 => Some(Instruction::RET),
+
+        // 00 xxx xxx
+        x if x >> 6 == 0b00 => {
+            match opcode & 0b00_000_111 {
+                0b001 => {
+                    if opcode & 0b1000 == 0 {
+                        // bit 3 not set => LD dd, nn => multi-byte
+                        None
+                    } else {
+                        // bit 3 set => ADD HL, ss
+                        Some(Instruction::ADD16(Operand16::HL,
+                                                map_register16(opcode >> 4)))
+                    }
+                }
+                0b011 => {
+                    if opcode & 0b1000 == 0 {
+                        Some(Instruction::INC16(map_register16(opcode >> 4)))
+                    } else {
+                        Some(Instruction::DEC16(map_register16(opcode >> 4)))
+                    }
+                }
+                0b100 =>
+                    Some(Instruction::INC(match map_register8(opcode >> 3) {
+                        Operand8::OneOneZero => Operand8::Deref(Operand16::HL),
+                        r => r
+                    })),
+                0b101 =>
+                    Some(Instruction::DEC(match map_register8(opcode >> 3) {
+                        Operand8::OneOneZero => Operand8::Deref(Operand16::HL),
+                        r => r
+                    })),
+                0b110 => None, // LD r, n => multi-byte
+                _ =>
+                    //Some(Instruction::IllegalOpcode)
+                    // From tests::decode_all_bytes, we know this is
+                    // unreachable.
+                    unreachable!()
+            }
+        }
+
+        // 01 xxx xxx
+        x if x >> 6 == 0b01 => {
+            match (map_register8(opcode >> 3), map_register8(opcode)) {
+                // 110 110 => HALT, already matched as constant 0x76
+                (Operand8::OneOneZero, r) =>
+                    Some(Instruction::LD(Operand8::Deref(Operand16::HL), r)),
+                (r, Operand8::OneOneZero) =>
+                    Some(Instruction::LD(r, Operand8::Deref(Operand16::HL))),
+                (r1, r2) => Some(Instruction::LD(r1, r2))
+            }
+        }
+
+        // 10 xxx xxx
+        x if x >> 6 == 0b10 => {
+            let r = match map_register8(opcode) {
+                Operand8::OneOneZero => Operand8::Deref(Operand16::HL),
+                r => r
+            };
+            match (opcode & 0b00_111_000) >> 3 {
+                0b000 => Some(Instruction::ADD(r)),
+                0b001 => Some(Instruction::ADC(r)),
+                0b010 => Some(Instruction::SUB(r)),
+                0b011 => Some(Instruction::SBC(r)),
+                0b100 => Some(Instruction::AND(r)),
+                0b101 => Some(Instruction::XOR(r)),
+                0b110 => Some(Instruction::OR(r)),
+                0b111 => Some(Instruction::CP(r)),
+                _ => unreachable!()
+            }
+        }
+
+        // 11 xxx xxx
+        _ => {
+            match opcode & 0b111 {
+                0b010 | 0b011 | 0b100 | 0b110 => None, // Multi-byte instruction
+                0b000 =>
+                    Some(Instruction::RETConditional(
+                            map_condition(opcode >> 3))),
+                0b001 | 0b101 => {
+                    let qq = match map_register16(opcode >> 4) {
+                        Operand16::SP => Operand16::AF,
+                        r => r
+                    };
+                    if opcode & 0b1000 == 0 {
+                        if opcode & 0b100 == 0 {
+                            Some(Instruction::POP(qq))
+                        } else {
+                            Some(Instruction::PUSH(qq))
+                        }
+                    } else {
+                        //Some(Instruction::IllegalOpcode)
+                        // From tests::decode_all_bytes, we know this is
+                        // unreachable.
+                        unreachable!()
+                    }
+                }
+                0b111 => Some(Instruction::RST(opcode & 0b00_111_000)),
+                _ => unreachable!()
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::z80::instructions;
+
+    #[test]
+    fn decode_all_bytes() {
+        for byte in 0..=u8::MAX {
+            assert_ne!(instructions::decode1byte(byte),
+                       Some(instructions::Instruction::IllegalOpcode),
+                       "Byte {:#010b} could not be decoded", byte)
+        }
+    }
+}
