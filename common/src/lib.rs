@@ -1,3 +1,4 @@
+use std::cell::UnsafeCell;
 use std::io::{Read, Seek};
 
 pub trait ReadSeek: Read + Seek {}
@@ -19,20 +20,24 @@ pub trait BusTransform {
 }
 
 pub struct Bus<'a, F, const WIDTH: usize> {
-    devices: Vec<(&'a mut dyn BusDevice<F, WIDTH>, &'a dyn BusTransform)>,
-    bus_state: Box<[u8; WIDTH]>,
+    devices: UnsafeCell<Vec<(&'a mut dyn BusDevice<F, WIDTH>, &'a dyn BusTransform)>>,
+    bus_state: UnsafeCell<[u8; WIDTH]>,
 }
 
 impl<'a, F, const WIDTH: usize> Bus<'a, F, WIDTH> {
-    pub fn read(&mut self, addr: usize) -> (Option<F>, &[u8; WIDTH]) {
+    /// # Safety
+    /// Only safe if the Bus can be accessed from one place at a time.
+    pub unsafe fn read(&self, addr: usize) -> (Option<F>, &[u8; WIDTH], u64) {
+        let devices = &mut *self.devices.get();
+        let bus_state = &mut *self.bus_state.get();
         let mut new_state = [0; WIDTH];
         let mut bus_status = [BusStatus::OpenBus; WIDTH];
         let mut scratch_state = [0; WIDTH];
-        for (device, transform) in &mut self.devices {
+        for (device, transform) in devices {
             if let Some(addr) = transform.transform(addr) {
                 let (fault, cur_bus_status) = device.read(addr, &mut scratch_state);
                 if let Some(fault) = fault {
-                    return (Some(fault), &*self.bus_state); // Temporary
+                    return (Some(fault), &*self.bus_state.get(), 1); // Temporary
                 }
                 for i in 0..WIDTH {
                     if cur_bus_status[i] != BusStatus::OpenBus {
@@ -49,23 +54,27 @@ impl<'a, F, const WIDTH: usize> Bus<'a, F, WIDTH> {
         }
         for i in 0..WIDTH {
             if bus_status[i] == BusStatus::OpenBus {
-                new_state[i] = self.bus_state[i];
+                new_state[i] = bus_state[i];
             }
         }
-        *self.bus_state = new_state;
-        (None, &*self.bus_state)
+        *bus_state = new_state;
+        (None, &*self.bus_state.get(), 1)
     }
 
-    pub fn write(&mut self, addr: usize, value: &[u8; WIDTH]) -> Option<F> {
-        for (device, transform) in &mut self.devices {
+    /// # Safety
+    /// Only safe if the Bus can be accessed from one place at a time.
+    pub unsafe fn write(&self, addr: usize, value: &[u8; WIDTH]) -> (Option<F>, u64) {
+        let devices = &mut *self.devices.get();
+        // TODO: update open bus
+        for (device, transform) in devices {
             if let Some(addr) = transform.transform(addr) {
                 let fault = device.write(addr, value);
                 if let Some(fault) = fault {
-                    return Some(fault); // Temporary
+                    return (Some(fault), 1); // Temporary
                 }
             }
         }
-        None
+        (None, 1)
     }
 
     pub fn add_device(
@@ -73,6 +82,9 @@ impl<'a, F, const WIDTH: usize> Bus<'a, F, WIDTH> {
         device: &'a mut dyn BusDevice<F, WIDTH>,
         transform: &'a dyn BusTransform,
     ) {
-        self.devices.push((device, transform));
+        unsafe {
+            // SAFETY: `add_device` obtains a mutable reference to self, therefore this is the only usage of the UnsafeCell.
+            (*self.devices.get()).push((device, transform));
+        }
     }
 }
