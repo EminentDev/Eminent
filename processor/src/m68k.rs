@@ -25,6 +25,6 @@ impl<'a> M68K<'a> {
 
 impl Processor for M68K<'_> {
     fn tick(&mut self) {
-        println!("{:?}", self.read(0x0000 as usize));
+        println!("{:?}", self.read(0x0000_usize));
     }
 }
