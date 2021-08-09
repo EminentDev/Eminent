@@ -25,6 +25,13 @@ pub struct Bus<'a, F, const WIDTH: usize> {
 }
 
 impl<'a, F, const WIDTH: usize> Bus<'a, F, WIDTH> {
+    pub fn new() -> Self {
+        Bus {
+            devices: Vec::new().into(),
+            bus_state: [0; WIDTH].into(),
+        }
+    }
+
     /// # Safety
     /// Only safe if the Bus can be accessed from one place at a time.
     pub unsafe fn read(&self, addr: usize) -> (Option<F>, &[u8; WIDTH], u64) {
@@ -86,5 +93,11 @@ impl<'a, F, const WIDTH: usize> Bus<'a, F, WIDTH> {
             // SAFETY: `add_device` obtains a mutable reference to self, therefore this is the only usage of the UnsafeCell.
             (*self.devices.get()).push((device, transform));
         }
+    }
+}
+
+impl<'a, F, const WIDTH: usize> Default for Bus<'a, F, WIDTH> {
+    fn default() -> Self {
+        Self::new()
     }
 }
