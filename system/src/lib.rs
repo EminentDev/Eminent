@@ -2,6 +2,8 @@ use common::ReadSeek;
 
 #[cfg(feature = "gb")]
 pub mod gb;
+#[cfg(feature = "md")]
+pub mod md;
 #[cfg(feature = "nes")]
 pub mod nes;
 
@@ -33,7 +35,7 @@ macro_rules! init_loaders_array{
 }
 
 lazy_static::lazy_static! {
-    static ref LOADERS: Vec<&'static (dyn FileLoader + Sync)> = init_loaders_array![nes::NesFileLoader{} => "nes", gb::GbFileLoader{} => "gb"];
+    static ref LOADERS: Vec<&'static (dyn FileLoader + Sync)> = init_loaders_array![nes::NesFileLoader{} => "nes", gb::GbFileLoader{} => "gb", md::MdFileLoader{} => "md"];
 }
 
 pub fn get_file_loader(

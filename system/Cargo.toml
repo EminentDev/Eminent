@@ -13,5 +13,6 @@ lazy_static = "1.4.0"
 [features]
 nes = ["processor/m6502x"]
 gb = ["processor/gbz80"]
-default-systems = ["nes","gb"]
+md = ["processor/m68k"]
+default-systems = ["nes","gb","md"]
 all-systems = ["default-systems"]

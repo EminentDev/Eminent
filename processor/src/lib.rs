@@ -4,6 +4,9 @@ pub mod m6502;
 #[cfg(feature = "gbz80")]
 pub mod gbz80;
 
+#[cfg(feature = "m68k")]
+pub mod m68k;
+
 pub trait Processor {
     fn tick(&mut self);
 }
