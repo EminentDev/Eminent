@@ -6,16 +6,16 @@ use std::rc::Rc;
 #[derive(Debug)]
 pub struct M68KFault {}
 
-pub struct M68K<'a> {
-    bus: Rc<RefCell<Bus<'a, M68KFault, 16>>>,
+pub struct M68K {
+    bus: Rc<RefCell<Bus<M68KFault, 16>>>,
 }
 
-impl<'a> M68K<'a> {
-    pub fn new(bus: Rc<RefCell<Bus<'a, M68KFault, 16>>>) -> M68K<'a> {
+impl M68K {
+    pub fn new(bus: Rc<RefCell<Bus<M68KFault, 16>>>) -> M68K {
         M68K { bus }
     }
 
-    fn read(&self, addr: usize) -> (Option<M68KFault>, &'a [u8; 16], u64) {
+    fn read(&self, addr: usize) -> (Option<M68KFault>, &[u8; 16], u64) {
         unsafe {
             // SAFETY: Assume we're fine.
             self.bus.borrow().read(addr)
@@ -23,7 +23,7 @@ impl<'a> M68K<'a> {
     }
 }
 
-impl Processor for M68K<'_> {
+impl Processor for M68K {
     fn tick(&mut self) {
         println!("{:?}", self.read(0x0000_usize));
     }

@@ -25,13 +25,13 @@ impl FileLoader for MdFileLoader {
     }
 }
 
-pub struct MdSystem<'a> {
-    m68k_bus: Rc<RefCell<Bus<'a, M68KFault, 16>>>,
-    m68k: M68K<'a>,
+pub struct MdSystem {
+    m68k_bus: Rc<RefCell<Bus<M68KFault, 16>>>,
+    m68k: M68K,
     cycle_index: u16,
 }
 
-impl<'a> System for MdSystem<'a> {
+impl System for MdSystem {
     fn tick(&mut self, num_cycles: u64) {
         for _ in 0..num_cycles {
             if self.cycle_index % 7 == 0 {

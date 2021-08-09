@@ -19,12 +19,12 @@ pub trait BusTransform {
     fn transform(&self, addr: usize) -> Option<usize>;
 }
 
-pub struct Bus<'a, F, const WIDTH: usize> {
-    devices: UnsafeCell<Vec<(&'a mut dyn BusDevice<F, WIDTH>, &'a dyn BusTransform)>>,
+pub struct Bus<F, const WIDTH: usize> {
+    devices: UnsafeCell<Vec<(Box<dyn BusDevice<F, WIDTH>>, Box<dyn BusTransform>)>>,
     bus_state: UnsafeCell<[u8; WIDTH]>,
 }
 
-impl<'a, F, const WIDTH: usize> Bus<'a, F, WIDTH> {
+impl<F, const WIDTH: usize> Bus<F, WIDTH> {
     pub fn new() -> Self {
         Bus {
             devices: Vec::new().into(),
@@ -34,7 +34,7 @@ impl<'a, F, const WIDTH: usize> Bus<'a, F, WIDTH> {
 
     /// # Safety
     /// Only safe if the Bus can be accessed from one place at a time.
-    pub unsafe fn read(&self, addr: usize) -> (Option<F>, &'a [u8; WIDTH], u64) {
+    pub unsafe fn read(&self, addr: usize) -> (Option<F>, &'static [u8; WIDTH], u64) {
         let devices = &mut *self.devices.get();
         let bus_state = &mut *self.bus_state.get();
         let mut new_state = [0; WIDTH];
@@ -86,8 +86,8 @@ impl<'a, F, const WIDTH: usize> Bus<'a, F, WIDTH> {
 
     pub fn add_device(
         &mut self,
-        device: &'a mut dyn BusDevice<F, WIDTH>,
-        transform: &'a dyn BusTransform,
+        device: Box<dyn BusDevice<F, WIDTH>>,
+        transform: Box<dyn BusTransform>,
     ) {
         unsafe {
             // SAFETY: `add_device` obtains a mutable reference to self, therefore this is the only usage of the UnsafeCell.
@@ -96,7 +96,7 @@ impl<'a, F, const WIDTH: usize> Bus<'a, F, WIDTH> {
     }
 }
 
-impl<'a, F, const WIDTH: usize> Default for Bus<'a, F, WIDTH> {
+impl<F, const WIDTH: usize> Default for Bus<F, WIDTH> {
     fn default() -> Self {
         Self::new()
     }
