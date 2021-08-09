@@ -7,15 +7,15 @@ use std::rc::Rc;
 pub struct M68KFault {}
 
 pub struct M68K {
-    bus: Rc<RefCell<Bus<M68KFault, 16>>>,
+    bus: Rc<RefCell<Bus<M68KFault, 2>>>,
 }
 
 impl M68K {
-    pub fn new(bus: Rc<RefCell<Bus<M68KFault, 16>>>) -> M68K {
+    pub fn new(bus: Rc<RefCell<Bus<M68KFault, 2>>>) -> M68K {
         M68K { bus }
     }
 
-    fn read(&self, addr: usize) -> (Option<M68KFault>, &[u8; 16], u64) {
+    fn read(&self, addr: usize) -> (Option<M68KFault>, &[u8; 2], u64) {
         unsafe {
             // SAFETY: Assume we're fine.
             self.bus.borrow().read(addr)
