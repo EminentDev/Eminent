@@ -1,3 +1,4 @@
+#![feature(cell_leak)]
 use common::ReadSeek;
 
 #[cfg(feature = "gb")]

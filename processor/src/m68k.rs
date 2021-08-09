@@ -1,22 +1,24 @@
 use crate::Processor;
 use common::Bus;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 #[derive(Debug)]
 pub struct M68KFault {}
 
 pub struct M68K<'a> {
-    bus: &'a Bus<'a, M68KFault, 16>,
+    bus: Rc<RefCell<Bus<'a, M68KFault, 16>>>,
 }
 
-impl<'a> M68K<'_> {
-    pub fn new(bus: &'a mut Bus<'a, M68KFault, 16>) -> M68K<'a> {
+impl<'a> M68K<'a> {
+    pub fn new(bus: Rc<RefCell<Bus<'a, M68KFault, 16>>>) -> M68K<'a> {
         M68K { bus }
     }
 
-    fn read(&self, addr: usize) -> (Option<M68KFault>, &[u8; 16], u64) {
+    fn read(&self, addr: usize) -> (Option<M68KFault>, &'a [u8; 16], u64) {
         unsafe {
-            // SAFETY: We have the only reference to the Bus.
-            self.bus.read(addr)
+            // SAFETY: Assume we're fine.
+            self.bus.borrow().read(addr)
         }
     }
 }

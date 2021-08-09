@@ -34,7 +34,7 @@ impl<'a, F, const WIDTH: usize> Bus<'a, F, WIDTH> {
 
     /// # Safety
     /// Only safe if the Bus can be accessed from one place at a time.
-    pub unsafe fn read(&self, addr: usize) -> (Option<F>, &[u8; WIDTH], u64) {
+    pub unsafe fn read(&self, addr: usize) -> (Option<F>, &'a [u8; WIDTH], u64) {
         let devices = &mut *self.devices.get();
         let bus_state = &mut *self.bus_state.get();
         let mut new_state = [0; WIDTH];
