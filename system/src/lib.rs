@@ -2,6 +2,8 @@ use common::ReadSeek;
 
 #[cfg(feature = "gb")]
 pub mod gb;
+#[cfg(feature = "md")]
+pub mod md;
 #[cfg(feature = "nes")]
 pub mod nes;
 
