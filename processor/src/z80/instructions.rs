@@ -24,7 +24,7 @@ pub enum Operand8 {
 }
 
 /// A 16 bits operand
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Operand16 {
     Immediate(u16),
     BC,
@@ -358,6 +358,179 @@ pub fn decode1byte(opcode: u8) -> Option<Instruction> {
     }
 }
 
+/// Try to decode an instruction from two bytes.
+///
+/// Return `Some(Instruction)` if sucessful, otherwise `None`. In the latter
+/// case, more bytes may be needed.
+pub fn decode2bytes(byte1: u8, byte2: u8) -> Option<Instruction> {
+    match byte1 {
+        0xDD | 0xFD => {
+            let ir = if byte1 == 0xDD {
+                Operand16::IX
+            } else {
+                Operand16::IY
+            };
+            match byte2 {
+                0xF9 => Some(Instruction::LD16(Operand16::SP, ir)),
+                0xE5 => Some(Instruction::PUSH(ir)),
+                0xE1 => Some(Instruction::POP(ir)),
+                0xE3 => Some(Instruction::EX(Operand16::DerefSP, ir)),
+                0x23 => Some(Instruction::INC16(ir)),
+                0x2B => Some(Instruction::DEC16(ir)),
+                0xE9 => Some(Instruction::JP(ir)),
+
+                0x21 | 0x22 | 0x2A | 0x36 | 0xCB => None, // 4 bytes
+
+                x if x & 0b11_001_111 == 0b01_001_001 =>
+                    Some(Instruction::ADD16(ir.clone(),
+                                            match map_register16(byte2 >> 4) {
+                                                Operand16::HL => ir,
+                                                r => r
+                                            })),
+
+                // LD r, (ir+d) => 3 bytes
+                x if x & 0b11_000_111 == 0b01_000_110 => None,
+                // LD (ir+d), r => 3 bytes
+                x if x & 0b11_111_000 == 0b01_110_000 => None,
+                // <arithmetic or logic operation> A, (ir+d) => 3 bytes
+                x if x & 0b11_000_111 == 0b10_000_110 => None,
+                // <INC|DEC> (ir+d) => 3 bytes
+                x if x & 0b11_111_110 == 0b00_110_100 => None,
+
+                _ => Some(Instruction::IllegalOpcode)
+            }
+        }
+        0xED => {
+            match byte2 {
+                0x57 => Some(Instruction::LD(Operand8::A, Operand8::I)),
+                0x5F => Some(Instruction::LD(Operand8::A, Operand8::R)),
+                0x47 => Some(Instruction::LD(Operand8::I, Operand8::A)),
+                0x4F => Some(Instruction::LD(Operand8::R, Operand8::A)),
+                0xA0 => Some(Instruction::LDI),
+                0xB0 => Some(Instruction::LDIR),
+                0xA8 => Some(Instruction::LDD),
+                0xB8 => Some(Instruction::LDDR),
+                0xA1 => Some(Instruction::CPI),
+                0xB1 => Some(Instruction::CPIR),
+                0xA9 => Some(Instruction::CPD),
+                0xB9 => Some(Instruction::CPDR),
+                0x44 => Some(Instruction::NEG),
+                0x46 => Some(Instruction::IM0),
+                0x56 => Some(Instruction::IM1),
+                0x5E => Some(Instruction::IM2),
+                0x6F => Some(Instruction::RLD),
+                0x67 => Some(Instruction::RRD),
+                0x4D => Some(Instruction::RETI),
+                0x45 => Some(Instruction::RETN),
+                0xA2 => Some(Instruction::INI),
+                0xB2 => Some(Instruction::INIR),
+                0xAA => Some(Instruction::IND),
+                0xBA => Some(Instruction::INDR),
+                0xA3 => Some(Instruction::OUTI),
+                0xB3 => Some(Instruction::OTIR),
+                0xAB => Some(Instruction::OUTD),
+                0xBB => Some(Instruction::OTDR),
+
+                // LD dd, (nn) and LD (nn), dd => 4 bytes
+                x if x & 0b11_000_111 == 0b01_000_011 => None,
+                x if x & 0b11_000_111 == 0b01_000_010 => {
+                    let r = map_register16(byte2 >> 4);
+                    if byte2 & 0b1000 == 0 {
+                        Some(Instruction::SBC16(r))
+                    } else {
+                        Some(Instruction::ADC16(r))
+                    }
+                }
+                x if x & 0b11_000_110 == 0b01_000_000 => {
+                    let r = map_register8(byte2 >> 3);
+                    if byte2 & 0b1 == 0 {
+                        // Keep OneOneZero for execution step
+                        Some(Instruction::IN(r, Operand8::C))
+                    } else {
+                        // Nothing in spec about OneOneZero, assume illegal
+                        if r == Operand8::OneOneZero {
+                            Some(Instruction::IllegalOpcode)
+                        } else {
+                            Some(Instruction::OUT(Operand8::C, r))
+                        }
+                    }
+                }
+
+                _ => Some(Instruction::IllegalOpcode)
+            }
+        }
+        0xCB => {
+            let r = match map_register8(byte2) {
+                Operand8::OneOneZero => Operand8::Deref(Operand16::HL),
+                r => r
+            };
+            match byte2 >> 6 {
+                0b00 => {
+                    match byte2 >> 3 {
+                        0b000 => Some(Instruction::RLC(r)),
+                        0b001 => Some(Instruction::RRC(r)),
+                        0b010 => Some(Instruction::RL(r)),
+                        0b011 => Some(Instruction::RR(r)),
+                        0b100 => Some(Instruction::SLA(r)),
+                        0b101 => Some(Instruction::SRA(r)),
+                        0b110 => Some(Instruction::IllegalOpcode),
+                        0b111 => Some(Instruction::SRL(r)),
+                        _ => unreachable!()
+                    }
+                }
+                0b01 => Some(Instruction::BIT((byte2 >> 3) & 0b111, r)),
+                0b11 => Some(Instruction::SET((byte2 >> 3) & 0b111, r)),
+                0b10 => Some(Instruction::RES((byte2 >> 3) & 0b111, r)),
+                _ => unreachable!()
+            }
+        }
+
+        0x36 =>
+            Some(Instruction::LD(Operand8::Deref(Operand16::HL),
+                                 Operand8::Immediate(byte2))),
+        0x18 => Some(Instruction::JR(i8::from_be_bytes([byte2]))),
+        0x38 => Some(Instruction::JRConditional(Condition::C,
+                                                i8::from_be_bytes([byte2]))),
+        0x30 => Some(Instruction::JRConditional(Condition::NC,
+                                                i8::from_be_bytes([byte2]))),
+        0x28 => Some(Instruction::JRConditional(Condition::Z,
+                                                i8::from_be_bytes([byte2]))),
+        0x20 => Some(Instruction::JRConditional(Condition::NZ,
+                                                i8::from_be_bytes([byte2]))),
+        0x10 => Some(Instruction::DJNZ(i8::from_be_bytes([byte2]))),
+        0xDB => Some(Instruction::IN(Operand8::A, Operand8::Immediate(byte2))),
+        0xD3 => Some(Instruction::OUT(Operand8::Immediate(byte2), Operand8::A)),
+
+        0x22 | 0x2A | 0x32 | 0x3A | 0xC3 | 0xCD => None, // 3 bytes
+
+        x if x & 0b11_000_111 == 0b00_000_110 =>
+            Some(Instruction::LD(map_register8(byte1 >> 3),
+                                 Operand8::Immediate(byte2))),
+        x if x & 0b11_000_111 == 0b11_000_110 => {
+            match (byte1 >> 3) & 0b111 {
+                0b000 => Some(Instruction::ADD(Operand8::Immediate(byte2))),
+                0b001 => Some(Instruction::ADC(Operand8::Immediate(byte2))),
+                0b010 => Some(Instruction::SUB(Operand8::Immediate(byte2))),
+                0b011 => Some(Instruction::SBC(Operand8::Immediate(byte2))),
+                0b100 => Some(Instruction::AND(Operand8::Immediate(byte2))),
+                0b101 => Some(Instruction::XOR(Operand8::Immediate(byte2))),
+                0b110 => Some(Instruction::OR(Operand8::Immediate(byte2))),
+                0b111 => Some(Instruction::CP(Operand8::Immediate(byte2))),
+                _ => unreachable!()
+            }
+        }
+
+        x if x & 0b11_001_111 == 0b00_000_001 => None, // LD dd, nn => 3 bytes
+        x if x & 0b11_000_111 == 0b11_000_010 => None, // JP cc, nn => 3 bytes
+        x if x & 0b11_000_111 == 0b11_000_100 => None, // CALL cc, nn => 3 bytes
+        _ =>
+            //Some(Instruction::IllegalOpcode)
+            // From tests::decode_all_2bytes, we know this is
+            // unreachable.
+            unreachable!()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::z80::instructions;
@@ -368,6 +541,22 @@ mod tests {
             assert_ne!(instructions::decode1byte(byte),
                        Some(instructions::Instruction::IllegalOpcode),
                        "Byte {:#010b} could not be decoded", byte)
+        }
+    }
+
+    #[test]
+    fn decode_all_2bytes() {
+        for byte1 in 0..=u8::MAX {
+            if let None = instructions::decode1byte(byte1) {
+                for byte2 in 0..=u8::MAX {
+                    //assert_ne!(instructions::decode2bytes(byte1, byte2),
+                    //    Some(instructions::Instruction::IllegalOpcode),
+                    //    "Bytes {:#010b} {:08b} could not be decoded",
+                    //    byte1, byte2);
+                    // There are unused byte sequences. Just run a smoke test.
+                    let _ = instructions::decode2bytes(byte1, byte2);
+                }
+            }
         }
     }
 }
