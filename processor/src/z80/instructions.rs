@@ -608,6 +608,94 @@ pub fn decode3bytes(byte1: u8, byte2: u8, byte3: u8) -> Option<Instruction> {
     }
 }
 
+/// Try to decode an instruction from four bytes.
+///
+/// Although the interface calls for an `Option<Instruction>` to match the other
+/// functions in this module, this function always returns `Some` as there are
+/// no opcodes longer than 4 bytes.
+///
+/// # Requirements
+///
+/// This function assumes you already tried
+/// `instructions::decode3bytes(byte1, byte2, byte3)` and it returned `None`.
+pub fn decode4bytes(byte1: u8, byte2: u8, byte3: u8, byte4: u8)
+    -> Option<Instruction> {
+    let nn = u16::from_le_bytes([byte3, byte4]);
+    match byte1 {
+        0xDD | 0xFD => {
+            let (ir, iroffset) = if byte1 == 0xDD {
+                (Operand16::IX, Operand8::Deref(
+                        Operand16::IXOffset(i8::from_be_bytes([byte3]))))
+            } else {
+                (Operand16::IY, Operand8::Deref(
+                        Operand16::IYOffset(i8::from_be_bytes([byte3]))))
+            };
+            match byte2 {
+                0x36 =>
+                    Some(Instruction::LD(iroffset, Operand8::Immediate(byte4))),
+                0x21 => Some(Instruction::LD16(ir, Operand16::Immediate(nn))),
+                0x2A => Some(Instruction::LD16(ir, Operand16::Deref(nn))),
+                0x22 => Some(Instruction::LD16(Operand16::Deref(nn), ir)),
+                0xCB => {
+                    if byte4 & 0b00_000_111 == 0b110 {
+                        match byte4 >> 6 {
+                            0b00 => {
+                                match byte4 >> 3 {
+                                    0b000 => Some(Instruction::RLC(iroffset)),
+                                    0b001 => Some(Instruction::RRC(iroffset)),
+                                    0b010 => Some(Instruction::RL(iroffset)),
+                                    0b011 => Some(Instruction::RR(iroffset)),
+                                    0b100 => Some(Instruction::SLA(iroffset)),
+                                    0b101 => Some(Instruction::SRA(iroffset)),
+                                    0b110 => Some(Instruction::IllegalOpcode),
+                                    0b111 => Some(Instruction::SRL(iroffset)),
+                                    _ => unreachable!()
+                                }
+                            }
+                            0b01 => Some(Instruction::BIT((byte4 >> 3) & 0b111,
+                                                          iroffset)),
+                            0b10 => Some(Instruction::RES((byte4 >> 3) & 0b111,
+                                                          iroffset)),
+                            0b11 => Some(Instruction::SET((byte4 >> 3) & 0b111,
+                                                          iroffset)),
+                            _ => unreachable!()
+                        }
+                    } else {
+                        Some(Instruction::IllegalOpcode)
+                    }
+                }
+                _ =>
+                    //Some(Instruction::IllegalOpcode)
+                    // From tests::decode_all_4bytes, we know this is
+                    // unreachable.
+                    unreachable!()
+            }
+        }
+        0xED => {
+            if byte2 & 0b11_000_111 == 0b01_000_011 {
+                if byte2 & 0b1000 == 0 {
+                    Some(Instruction::LD16(Operand16::Deref(nn),
+                                           map_register16(byte2 >> 4)))
+                } else {
+                    Some(Instruction::LD16(map_register16(byte2 >> 4),
+                                           Operand16::Deref(nn)))
+                }
+            } else {
+                //Some(Instruction::IllegalOpcode)
+                // From tests::decode_all_4bytes, we know this is
+                // unreachable.
+                unreachable!()
+            }
+        }
+
+        _ =>
+            //Some(Instruction::IllegalOpcode)
+            // From tests::decode_all_4bytes, we know this is
+            // unreachable.
+            unreachable!()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::z80::instructions;
@@ -651,6 +739,31 @@ mod tests {
                             //    byte1, byte2, byte3)
                             // There are unused byte sequences. Just run a smoke test.
                             let _ = instructions::decode3bytes(byte1, byte2, byte3);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn decode_all_4bytes() {
+        for byte1 in 0..=u8::MAX {
+            if let None = instructions::decode1byte(byte1) {
+                for byte2 in 0..=u8::MAX {
+                    if let None = instructions::decode2bytes(byte1, byte2) {
+                        for byte3 in 0..=u8::MAX {
+                            if let None = instructions::decode3bytes(byte1, byte2, byte3) {
+                                for byte4 in 0..=u8::MAX {
+                                    //assert_ne!(
+                                    //    instructions::decode4bytes(byte1, byte2, byte3, byte4),
+                                    //    Some(instructions::Instruction::IllegalOpcode),
+                                    //    "Bytes {:#010b} {:08b} {:08b} {:08b} could not be decoded",
+                                    //    byte1, byte2, byte3, byte4)
+                                    // There are unused byte sequences. Just run a smoke test.
+                                    let _ = instructions::decode4bytes(byte1, byte2, byte3, byte4);
+                                }
+                            }
                         }
                     }
                 }
