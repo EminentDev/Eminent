@@ -362,6 +362,11 @@ pub fn decode1byte(opcode: u8) -> Option<Instruction> {
 ///
 /// Return `Some(Instruction)` if sucessful, otherwise `None`. In the latter
 /// case, more bytes may be needed.
+///
+/// # Requirements
+///
+/// This function assumes you already tried `instructions::decode1byte(byte1)`
+/// and it returned `None`.
 pub fn decode2bytes(byte1: u8, byte2: u8) -> Option<Instruction> {
     match byte1 {
         0xDD | 0xFD => {
@@ -531,6 +536,78 @@ pub fn decode2bytes(byte1: u8, byte2: u8) -> Option<Instruction> {
     }
 }
 
+/// Try to decode an instruction from three bytes.
+///
+/// Return `Some(Instruction)` if sucessful, otherwise `None`. In the latter
+/// case, more bytes may be needed.
+///
+/// # Requirements
+///
+/// This function assumes you already tried
+/// `instructions::decode2bytes(byte1, byte2)` and it returned `None`.
+pub fn decode3bytes(byte1: u8, byte2: u8, byte3: u8) -> Option<Instruction> {
+    let nn = u16::from_le_bytes([byte2, byte3]);
+    let nnimmediate = Operand16::Immediate(nn.clone());
+    match byte1 {
+        0xDD | 0xFD => {
+            let iroffset = if byte1 == 0xDD {
+                Operand8::Deref(Operand16::IXOffset(i8::from_be_bytes([byte3])))
+            } else {
+                Operand8::Deref(Operand16::IYOffset(i8::from_be_bytes([byte3])))
+            };
+            match byte2 {
+                0x34 => Some(Instruction::INC(iroffset)),
+                0x35 => Some(Instruction::DEC(iroffset)),
+                0x21 | 0x22 | 0x2A | 0x36 | 0xCB => None, // 4 bytes
+
+                x if x & 0b11_000_111 == 0b01_000_110 =>
+                    Some(Instruction::LD(map_register8(byte2 >> 3), iroffset)),
+                x if x & 0b11_111_000 == 0b01_110_000 =>
+                    Some(Instruction::LD(iroffset, map_register8(byte2))),
+                x if x & 0b11_000_111 == 0b10_000_110 => {
+                    match (byte2 >> 3) & 0b111 {
+                        0b000 => Some(Instruction::ADD(iroffset)),
+                        0b001 => Some(Instruction::ADC(iroffset)),
+                        0b010 => Some(Instruction::SUB(iroffset)),
+                        0b011 => Some(Instruction::SBC(iroffset)),
+                        0b100 => Some(Instruction::AND(iroffset)),
+                        0b101 => Some(Instruction::XOR(iroffset)),
+                        0b110 => Some(Instruction::OR(iroffset)),
+                        0b111 => Some(Instruction::CP(iroffset)),
+                        _ => unreachable!()
+                    }
+                }
+
+                _ => Some(Instruction::IllegalOpcode)
+            }
+        }
+
+        0x3A =>
+            Some(Instruction::LD(Operand8::A, Operand8::Deref(nnimmediate))),
+        0x32 =>
+            Some(Instruction::LD(Operand8::Deref(nnimmediate), Operand8::A)),
+        0x2A => Some(Instruction::LD16(Operand16::HL, Operand16::Deref(nn))),
+        0x22 => Some(Instruction::LD16(Operand16::Deref(nn), Operand16::HL)),
+        0xC3 => Some(Instruction::JP(Operand16::Immediate(nn))),
+        0xCD => Some(Instruction::CALL(nn)),
+
+        0xED => None, // 4 bytes, assuming requirements have been followed
+
+        x if x & 0b11_001_111 == 0b00_000_001 =>
+            Some(Instruction::LD16(map_register16(byte1 >> 4), nnimmediate)),
+        x if x & 0b11_000_111 == 0b11_000_010 =>
+            Some(Instruction::JPConditional(map_condition(byte1 >> 3), nn)),
+        x if x & 0b11_000_111 == 0b11_000_100 =>
+            Some(Instruction::CALLConditional(map_condition(byte1 >> 3), nn)),
+
+        _ =>
+            //Some(Instruction::IllegalOpcode)
+            // From tests::decode_all_3bytes, we know this is
+            // unreachable.
+            unreachable!()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::z80::instructions;
@@ -555,6 +632,27 @@ mod tests {
                     //    byte1, byte2);
                     // There are unused byte sequences. Just run a smoke test.
                     let _ = instructions::decode2bytes(byte1, byte2);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn decode_all_3bytes() {
+        for byte1 in 0..=u8::MAX {
+            if let None = instructions::decode1byte(byte1) {
+                for byte2 in 0..=u8::MAX {
+                    if let None = instructions::decode2bytes(byte1, byte2) {
+                        for byte3 in 0..=u8::MAX {
+                            //assert_ne!(
+                            //    instructions::decode3bytes(byte1, byte2, byte3),
+                            //    Some(instructions::Instruction::IllegalOpcode),
+                            //    "Bytes {:#010b} {:08b} {:08b} could not be decoded",
+                            //    byte1, byte2, byte3)
+                            // There are unused byte sequences. Just run a smoke test.
+                            let _ = instructions::decode3bytes(byte1, byte2, byte3);
+                        }
+                    }
                 }
             }
         }
