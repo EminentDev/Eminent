@@ -14,7 +14,7 @@ struct M68KRegisters {
     a: [u32; 7], // A7 is stored separately
     d: [u32; 8],
     pc: u32,
-    sr: u16, // Also contains CCR
+    sr: u16,  // Also contains CCR
     usp: u32, // A7 in user mode
     ssp: u32, // A7 in supervisor mode
 }
@@ -37,7 +37,7 @@ pub struct M68K {
     state: M68KState,
     temp: u16,
     stall: u64,
-    regs: M68KRegisters
+    regs: M68KRegisters,
 }
 
 impl M68K {
@@ -91,7 +91,7 @@ impl Processor for M68K {
                     let (_, inst) = self.read(self.regs.pc as usize);
                     println!("Instruction: {:#06X}", inst);
                 }
-                _ => unreachable!()
+                _ => unreachable!(),
             }
         }
     }
