@@ -7,6 +7,6 @@ fn main() -> std::io::Result<()> {
     let mut file = File::open(filename)?;
     let loader = system::get_file_loader(filename, &mut file).unwrap();
     let mut system = loader.load(&mut file);
-    system.tick(100);
+    system.tick(system.cycles_per_frame());
     Ok(())
 }

@@ -16,6 +16,7 @@ pub trait System {
     fn tick(&mut self, num_cycles: u64);
     fn clock_speed(&self) -> u64;
     fn set_clock_speed(&mut self, speed: u64);
+    fn cycles_per_frame(&self) -> u64;
 }
 
 macro_rules! init_loaders_array{

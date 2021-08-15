@@ -22,5 +22,6 @@ impl System for GbSystem {
     fn clock_speed(&self) -> u64 {
         4_194_304
     }
-    fn set_clock_speed(&mut self, _: u64) {}
+    fn set_clock_speed(&mut self, _: u64) {} // TODO
+    fn cycles_per_frame(&self) -> u64 { 70_221 }
 }

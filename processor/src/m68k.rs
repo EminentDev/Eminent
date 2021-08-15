@@ -54,8 +54,8 @@ impl M68K {
     fn read(&mut self, addr: usize) -> (Option<M68KFault>, u16) {
         unsafe {
             // SAFETY: Assume we're fine.
-            let (fault, value, cycles) = self.bus.borrow().read(addr);
-            self.stall = cycles - 1;
+            let (fault, value, _) = self.bus.borrow().read(addr);
+            self.stall = 3; // Each read takes 4 cycles. No matter what.
             (fault, (value[0] as u16) << 8 | value[1] as u16)
         }
     }

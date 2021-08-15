@@ -92,5 +92,8 @@ impl System for MdSystem {
     fn clock_speed(&self) -> u64 {
         53_693_175
     }
-    fn set_clock_speed(&mut self, _: u64) {}
+    fn set_clock_speed(&mut self, _: u64) {} // But no
+    fn cycles_per_frame(&self) -> u64 {
+        896_040
+    }
 }
