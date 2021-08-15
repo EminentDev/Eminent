@@ -15,7 +15,7 @@ use common::Bus;
 pub mod instructions;
 
 /// The restart address on reception of a Non-Maskable Interrupt.
-pub const NMI_RESTART_ADDR : u16 = 0x0066;
+pub const NMI_RESTART_ADDR: u16 = 0x0066;
 
 /// A description of an error in the memory bus.
 ///
@@ -28,14 +28,14 @@ enum Flag {
     H,
     PV,
     N,
-    C
+    C,
 }
 
 /// The various interrupt modes available on the Z80.
 pub enum InterruptMode {
     IM0,
     IM1,
-    IM2
+    IM2,
 }
 
 /// The state of the CPU. This structure holds all the necessary information
@@ -67,7 +67,7 @@ pub struct State {
     pub IFF1: bool,
     pub IFF2: bool,
     pub IM: InterruptMode,
-    pub halted: bool
+    pub halted: bool,
 }
 
 /// Get the u16 value associated with a compound register
@@ -89,17 +89,39 @@ macro_rules! set_reg16 {
 /// The main structure of the CPU.
 pub struct Z80 {
     state: State,
-    bus: Rc<RefCell<Bus<Z80Fault, 1>>>
+    bus: Rc<RefCell<Bus<Z80Fault, 1>>>,
 }
 
 impl Z80 {
     /// Instanciate a new Z80 Processor.
     pub fn new(bus: Rc<RefCell<Bus<Z80Fault, 1>>>) -> Z80 {
         let state = State {
-            A: 0, Aprime: 0, F: 0, Fprime: 0, B: 0, Bprime: 0, C: 0, Cprime: 0,
-            D: 0, Dprime: 0, E: 0, Eprime: 0, H: 0, Hprime: 0, L: 0, Lprime: 0,
-            I: 0, R: 0, IX: 0, IY: 0, SP: 0, PC: 0, IFF1: false, IFF2: false,
-            IM: InterruptMode::IM0, halted: false
+            A: 0,
+            Aprime: 0,
+            F: 0,
+            Fprime: 0,
+            B: 0,
+            Bprime: 0,
+            C: 0,
+            Cprime: 0,
+            D: 0,
+            Dprime: 0,
+            E: 0,
+            Eprime: 0,
+            H: 0,
+            Hprime: 0,
+            L: 0,
+            Lprime: 0,
+            I: 0,
+            R: 0,
+            IX: 0,
+            IY: 0,
+            SP: 0,
+            PC: 0,
+            IFF1: false,
+            IFF2: false,
+            IM: InterruptMode::IM0,
+            halted: false,
         };
         Z80 { state, bus }
     }
@@ -119,7 +141,10 @@ impl Z80 {
         let (fault, _) = unsafe {
             // Safety concern: make sure we are the only thread accessing the
             // bus
-            Rc::get_mut(&mut self.bus).unwrap().get_mut().write(addr as usize, &[data])
+            Rc::get_mut(&mut self.bus)
+                .unwrap()
+                .get_mut()
+                .write(addr as usize, &[data])
         };
         fault
     }
@@ -141,7 +166,7 @@ impl Z80 {
             instructions::Operand8::L => self.state.L,
             instructions::Operand8::I => self.state.I,
             instructions::Operand8::R => self.state.R,
-            _ => panic!("Cannot get_value8({:?})", operand)
+            _ => panic!("Cannot get_value8({:?})", operand),
         }
     }
 
@@ -155,15 +180,15 @@ impl Z80 {
             instructions::Operand16::IX => self.state.IX,
             instructions::Operand16::IY => self.state.IY,
             instructions::Operand16::IXOffset(d) =>
-                // "<i8> as u16" performs a sign extension, wrapping_add does
-                // the same with unsigned as you would with signed
-                self.state.IX.wrapping_add(d as u16),
-            instructions::Operand16::IYOffset(d) =>
-                self.state.IY.wrapping_add(d as u16),
+            // "<i8> as u16" performs a sign extension, wrapping_add does
+            // the same with unsigned as you would with signed
+            {
+                self.state.IX.wrapping_add(d as u16)
+            }
+            instructions::Operand16::IYOffset(d) => self.state.IY.wrapping_add(d as u16),
             instructions::Operand16::SP => self.state.SP,
             instructions::Operand16::AF => get_reg16!(self.state, A, F),
-            instructions::Operand16::AFprime =>
-                get_reg16!(self.state, Aprime, Fprime),
+            instructions::Operand16::AFprime => get_reg16!(self.state, Aprime, Fprime),
             instructions::Operand16::DerefSP => {
                 let (_, low) = self.read(self.state.SP);
                 let (_, high) = self.read(self.state.SP.wrapping_add(1));
@@ -183,16 +208,34 @@ impl Z80 {
             instructions::Operand8::Deref(o) => {
                 let _ = self.write(self.get_value16(o), value);
             }
-            instructions::Operand8::A => { self.state.A = value; }
-            instructions::Operand8::B => { self.state.B = value; }
-            instructions::Operand8::C => { self.state.C = value; }
-            instructions::Operand8::D => { self.state.D = value; }
-            instructions::Operand8::E => { self.state.E = value; }
-            instructions::Operand8::H => { self.state.H = value; }
-            instructions::Operand8::L => { self.state.L = value; }
-            instructions::Operand8::I => { self.state.I = value; }
-            instructions::Operand8::R => { self.state.R = value; }
-            _ => panic!("Cannot set_value8({:?}, {})", operand, value)
+            instructions::Operand8::A => {
+                self.state.A = value;
+            }
+            instructions::Operand8::B => {
+                self.state.B = value;
+            }
+            instructions::Operand8::C => {
+                self.state.C = value;
+            }
+            instructions::Operand8::D => {
+                self.state.D = value;
+            }
+            instructions::Operand8::E => {
+                self.state.E = value;
+            }
+            instructions::Operand8::H => {
+                self.state.H = value;
+            }
+            instructions::Operand8::L => {
+                self.state.L = value;
+            }
+            instructions::Operand8::I => {
+                self.state.I = value;
+            }
+            instructions::Operand8::R => {
+                self.state.R = value;
+            }
+            _ => panic!("Cannot set_value8({:?}, {})", operand, value),
         }
     }
 
@@ -208,9 +251,15 @@ impl Z80 {
             instructions::Operand16::HL => {
                 set_reg16!(self.state, H, L, value);
             }
-            instructions::Operand16::IX => { self.state.IX = value; }
-            instructions::Operand16::IY => { self.state.IY = value; }
-            instructions::Operand16::SP => { self.state.SP = value; }
+            instructions::Operand16::IX => {
+                self.state.IX = value;
+            }
+            instructions::Operand16::IY => {
+                self.state.IY = value;
+            }
+            instructions::Operand16::SP => {
+                self.state.SP = value;
+            }
             instructions::Operand16::AF => {
                 set_reg16!(self.state, A, F, value);
             }
@@ -227,18 +276,18 @@ impl Z80 {
                 self.write(addr.wrapping_add(1), bytes[0]);
                 self.write(addr, bytes[1]);
             }
-            _ => panic!("Cannot set_value8({:?}, {})", operand, value)
+            _ => panic!("Cannot set_value8({:?}, {})", operand, value),
         }
     }
 
     fn get_flag_mask(flag: Flag) -> u8 {
         match flag {
-            Flag::S  => 0b10000000,
-            Flag::Z  => 0b01000000,
-            Flag::H  => 0b00010000,
+            Flag::S => 0b10000000,
+            Flag::Z => 0b01000000,
+            Flag::H => 0b00010000,
             Flag::PV => 0b00000100,
-            Flag::N  => 0b00000010,
-            Flag::C  => 0b00000001
+            Flag::N => 0b00000010,
+            Flag::C => 0b00000001,
         }
     }
 
@@ -258,13 +307,13 @@ impl Z80 {
     fn test_condition(&self, condition: instructions::Condition) -> bool {
         match condition {
             instructions::Condition::NZ => !self.test_flag(Flag::Z),
-            instructions::Condition::Z  =>  self.test_flag(Flag::Z),
+            instructions::Condition::Z => self.test_flag(Flag::Z),
             instructions::Condition::NC => !self.test_flag(Flag::C),
-            instructions::Condition::C  =>  self.test_flag(Flag::C),
+            instructions::Condition::C => self.test_flag(Flag::C),
             instructions::Condition::PO => !self.test_flag(Flag::PV),
-            instructions::Condition::PE =>  self.test_flag(Flag::PV),
-            instructions::Condition::P  => !self.test_flag(Flag::S),
-            instructions::Condition::M  =>  self.test_flag(Flag::S),
+            instructions::Condition::PE => self.test_flag(Flag::PV),
+            instructions::Condition::P => !self.test_flag(Flag::S),
+            instructions::Condition::M => self.test_flag(Flag::S),
         }
     }
 
@@ -305,11 +354,12 @@ impl Z80 {
                         self.set_flag(Flag::PV, self.state.IFF2);
                         self.set_flag(Flag::N, false);
                     }
-                    _ => ()
+                    _ => (),
                 }
             }
-            instructions::Instruction::LD16(lhs, rhs) =>
-                self.set_value16(lhs, self.get_value16(rhs)),
+            instructions::Instruction::LD16(lhs, rhs) => {
+                self.set_value16(lhs, self.get_value16(rhs))
+            }
             instructions::Instruction::PUSH(op) => {
                 let bytes = self.get_value16(op).to_be_bytes(); // [high, low]
                 self.write(self.state.SP.wrapping_sub(2), bytes[1]);
@@ -351,8 +401,7 @@ impl Z80 {
 
                 set_reg16!(self.state, D, E, destination.wrapping_add(1));
                 set_reg16!(self.state, H, L, source.wrapping_add(1));
-                let byte_counter =
-                    get_reg16!(self.state, B, C).wrapping_sub(1);
+                let byte_counter = get_reg16!(self.state, B, C).wrapping_sub(1);
                 set_reg16!(self.state, B, C, byte_counter);
 
                 self.set_flag(Flag::H, false);
@@ -519,8 +568,7 @@ impl Z80 {
             }
             instructions::Instruction::ADC(op) => {
                 let value = self.get_value8(op);
-                let (mut result, mut overflow) =
-                    self.state.A.overflowing_add(value);
+                let (mut result, mut overflow) = self.state.A.overflowing_add(value);
                 if self.test_flag(Flag::C) {
                     let (result2, overflow2) = result.overflowing_add(1);
                     result = result2;
@@ -549,8 +597,7 @@ impl Z80 {
             }
             instructions::Instruction::SBC(op) => {
                 let value = self.get_value8(op);
-                let (mut result, mut overflow) =
-                    self.state.A.overflowing_sub(value);
+                let (mut result, mut overflow) = self.state.A.overflowing_sub(value);
                 if self.test_flag(Flag::C) {
                     let (result2, overflow2) = result.overflowing_sub(1);
                     result = result2;
@@ -566,8 +613,8 @@ impl Z80 {
                 self.set_flag(Flag::C, overflow);
             }
             instructions::Instruction::AND(_)
-                    | instructions::Instruction::OR(_)
-                    | instructions::Instruction::XOR(_) => {
+            | instructions::Instruction::OR(_)
+            | instructions::Instruction::XOR(_) => {
                 match instruction {
                     instructions::Instruction::AND(op) => {
                         self.state.A &= self.get_value8(op);
@@ -578,7 +625,7 @@ impl Z80 {
                     instructions::Instruction::XOR(op) => {
                         self.state.A ^= self.get_value8(op);
                     }
-                    _ => unreachable!()
+                    _ => unreachable!(),
                 }
 
                 self.check_S(self.state.A);
@@ -600,12 +647,10 @@ impl Z80 {
                 self.set_flag(Flag::C, overflow);
             }
             instructions::Instruction::INC(op) => {
-                self.set_value8(op.clone(),
-                                self.get_value8(op).wrapping_add(1));
+                self.set_value8(op.clone(), self.get_value8(op).wrapping_add(1));
             }
             instructions::Instruction::DEC(op) => {
-                self.set_value8(op.clone(),
-                                self.get_value8(op).wrapping_sub(1));
+                self.set_value8(op.clone(), self.get_value8(op).wrapping_sub(1));
             }
             instructions::Instruction::DAA => {
                 let mut overflow = false;
@@ -679,8 +724,8 @@ impl Z80 {
                 self.state.IM = InterruptMode::IM2;
             }
             instructions::Instruction::ADD16(lhs, rhs) => {
-                let (result, overflow) =
-                    self.get_value16(lhs.clone())
+                let (result, overflow) = self
+                    .get_value16(lhs.clone())
                     .overflowing_add(self.get_value16(rhs));
                 self.set_value16(lhs, result);
 
@@ -722,12 +767,10 @@ impl Z80 {
                 self.set_flag(Flag::C, overflow);
             }
             instructions::Instruction::INC16(op) => {
-                self.set_value16(op.clone(),
-                                 self.get_value16(op).wrapping_add(1));
+                self.set_value16(op.clone(), self.get_value16(op).wrapping_add(1));
             }
             instructions::Instruction::DEC16(op) => {
-                self.set_value16(op.clone(),
-                                 self.get_value16(op).wrapping_sub(1));
+                self.set_value16(op.clone(), self.get_value16(op).wrapping_sub(1));
             }
             instructions::Instruction::RLCA => {
                 let out_bit = self.state.A & 0b1000_0000 != 0;
@@ -1002,15 +1045,15 @@ impl Z80 {
                 self.state.PC = addr as u16; // zero-extension
             }
             instructions::Instruction::IN(_, _)
-                | instructions::Instruction::INI
-                | instructions::Instruction::INIR
-                | instructions::Instruction::IND
-                | instructions::Instruction::INDR
-                | instructions::Instruction::OUT(_, _)
-                | instructions::Instruction::OUTI
-                | instructions::Instruction::OTIR
-                | instructions::Instruction::OUTD
-                | instructions::Instruction::OTDR => {
+            | instructions::Instruction::INI
+            | instructions::Instruction::INIR
+            | instructions::Instruction::IND
+            | instructions::Instruction::INDR
+            | instructions::Instruction::OUT(_, _)
+            | instructions::Instruction::OUTI
+            | instructions::Instruction::OTIR
+            | instructions::Instruction::OUTD
+            | instructions::Instruction::OTDR => {
                 panic!("I/O not implemented for Z80")
             }
             _ => {
@@ -1069,8 +1112,7 @@ impl Processor for Z80 {
         let (_, byte3) = self.read(self.state.PC);
         self.state.PC = self.state.PC.wrapping_add(1);
 
-        if let Some(instruction) =
-                instructions::decode3bytes(byte1, byte2, byte3) {
+        if let Some(instruction) = instructions::decode3bytes(byte1, byte2, byte3) {
             self.execute(instruction);
             return;
         }
@@ -1078,8 +1120,7 @@ impl Processor for Z80 {
         let (_, byte4) = self.read(self.state.PC);
         self.state.PC = self.state.PC.wrapping_add(1);
 
-        if let Some(instruction) =
-                instructions::decode4bytes(byte1, byte2, byte3, byte4) {
+        if let Some(instruction) = instructions::decode4bytes(byte1, byte2, byte3, byte4) {
             self.execute(instruction);
             return;
         }
