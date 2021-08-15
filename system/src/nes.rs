@@ -29,5 +29,7 @@ impl System for NesSystem {
         21_477_272
     }
     fn set_clock_speed(&mut self, _: u64) {}
-    fn cycles_per_frame(&self) -> u64 { 357_366 } // TODO: Actually slightly more complicated than this
+    fn cycles_per_frame(&self) -> u64 {
+        357_366
+    } // TODO: Actually slightly more complicated than this
 }
