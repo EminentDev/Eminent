@@ -44,8 +44,33 @@ struct MdCartridgeMapping {}
 
 impl BusTransform for MdCartridgeMapping {
     fn transform(&self, addr: usize) -> Option<usize> {
-        if (addr % 0xFFFFFF) < 0x400000 {
-            Some(addr % 0xFFFFFF)
+        if (addr & 0x00FFFFFF) < 0x400000 {
+            Some(addr & 0x00FFFFFF)
+        } else {
+            None
+        }
+    }
+}
+
+struct MdIoAreaDevice {}
+
+impl BusDevice<M68KFault, 2> for MdIoAreaDevice {
+    fn read(&mut self, addr: usize, result: &mut [u8; 2]) -> (Option<M68KFault>, [BusStatus; 2]) {
+        result[0] = 0; // TODO
+        result[1] = 0;
+        (None, [BusStatus::Hit; 2])
+    }
+    fn write(&mut self, _: usize, _: &[u8; 2]) -> Option<M68KFault> {
+        None // TODO
+    }
+}
+
+struct MdIoAreaMapping {}
+
+impl BusTransform for MdIoAreaMapping {
+    fn transform(&self, addr: usize) -> Option<usize> {
+        if (addr & 0x00FFFFFF) >= 0xA10000 && (addr & 0x00FFFFFF) < 0xA10020 {
+            Some((addr & 0x0000001F) >> 1)
         } else {
             None
         }
@@ -65,6 +90,9 @@ impl FileLoader for MdFileLoader {
             Box::new(MdRomCartridge::new(file)),
             Box::new(MdCartridgeMapping {}),
         );
+        m68k_bus
+            .borrow_mut()
+            .add_device(Box::new(MdIoAreaDevice {}), Box::new(MdIoAreaMapping {}));
         let m68k = M68K::new(Rc::clone(&m68k_bus));
         Box::new(MdSystem {
             m68k_bus,
