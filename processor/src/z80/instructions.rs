@@ -6,7 +6,7 @@
 //! can be represented with this model.
 
 /// An 8 bits operand
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Operand8 {
     Immediate(u8),
     Deref(Operand16),
