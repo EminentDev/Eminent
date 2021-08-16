@@ -51,6 +51,12 @@ impl M68KSize {
     }
 }
 
+enum M68KEffectiveAddress {
+    D(u8),
+    A(u8),
+    Mem(u32),
+}
+
 pub struct M68K {
     bus: Rc<RefCell<Bus<M68KFault, 2>>>,
     state: M68KState,
@@ -67,6 +73,23 @@ impl M68K {
             temp: 0,
             stall: 0,
             regs: M68KRegisters::default(),
+        }
+    }
+
+    fn ea_addr(&mut self, mode: u8, reg: u8) -> M68KEffectiveAddress {
+        match mode {
+            7 => match reg {
+                2 => {
+                    let pc = self.regs.pc; // PC is saved here, before reading displacement
+                    let (_, value) = self.read(self.regs.pc as usize);
+                    self.regs.pc += 2;
+                    let addr = pc.wrapping_add(sign_extend(M68KSize::Word, value as u32));
+                    println!("EA address resolution: (${:04X}, PC) (${:06X})", value, addr);
+                    M68KEffectiveAddress::Mem(addr)
+                }
+                _ => todo!(),
+            }
+            _ => todo!(),
         }
     }
 
@@ -191,6 +214,7 @@ impl Processor for M68K {
                                 self.regs.pc += 2;
                                 let (value, shift) = if mode <= 1 {
                                     // Dn or An
+                                    self.stall += 2; // Apparently something has to happen internally
                                     (
                                         self.ea_val(M68KSize::Long, mode as u8, reg as u8),
                                         shift & 0x1F,
@@ -239,6 +263,25 @@ impl Processor for M68K {
                                     println!("N flag cleared");
                                 }
                             }
+                            x if x & 0x0F80 == 0x0C80 => {
+                                panic!("MOVEM")
+                            }
+                            x if x & 0x01C0 == 0x01C0 => {
+                                let dest = (x & 0x0E00) >> 9;
+                                let mode = (x & 0x0038) >> 3;
+                                let reg = x & 0x0007;
+                                let ea = self.ea_addr(mode as u8, reg as u8);
+                                if let M68KEffectiveAddress::Mem(ea) = ea {
+                                    println!("LEA ${:06X}, A{}", ea, dest);
+                                    if dest == 7 { // A7 is weird
+                                        todo!();
+                                    } else {
+                                        self.regs.a[dest as usize] = ea;
+                                    }
+                                } else {
+                                    panic!("Insert fault here"); // Should be an illegal instruction fault tbh
+                                }
+                            }
                             _ => todo!(),
                         },
                         0x6000 => {
@@ -258,7 +301,7 @@ impl Processor for M68K {
                                     todo!();
                                 }
                                 let dest = self.regs.pc.wrapping_add(disp) & 0x00FFFFFF;
-                                println!("B{} ${:08X}", cc, dest);
+                                println!("B{} ${:06X}", cc, dest);
                                 if passed {
                                     println!("Condition passed");
                                     self.stall += 2;
