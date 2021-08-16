@@ -81,14 +81,40 @@ impl M68K {
                     let addr = ((self.temp as u32) << 16 | value as u32) & 0x00FFFFFF;
                     self.regs.pc += 2;
                     match size {
-                        M68KSize::Byte => todo!(),
-                        M68KSize::Word => todo!(),
+                        M68KSize::Byte => {
+                            // This gets fun.
+                            let (_, data) = self.read((addr & 0xFFFFFE) as usize); // Get both bytes. Welcome to the system.
+                            if addr & 0x000001 != 0 {
+                                // Low byte, high address
+                                println!(
+                                    "EA read-only resolution: ${:06X}.L = $({:02X}){:02X}",
+                                    addr,
+                                    (data & 0xFF00) >> 8,
+                                    data & 0x00FF
+                                );
+                                (data & 0x00FF) as u32
+                            } else {
+                                // High byte, low address
+                                println!(
+                                    "EA read-only resolution: ${:06X}.L = ${:02X}({:02X})",
+                                    addr,
+                                    (data & 0xFF00) >> 8,
+                                    data & 0x00FF
+                                );
+                                ((data & 0xFF00) >> 8) as u32
+                            }
+                        }
+                        M68KSize::Word => {
+                            let (_, data) = self.read(addr as usize);
+                            println!("EA read-only resolution: ${:06X}.L = ${:04X}", addr, data); // TODO: Make this use a debug flag
+                            data as u32
+                        }
                         M68KSize::Long => {
                             let (_, value) = self.read(addr as usize);
                             self.temp = value;
                             let (_, value) = self.read((addr + 2) as usize);
                             let data = (self.temp as u32) << 16 | value as u32;
-                            println!("EA read-only resolution: ${:06X}.L = ${:08X}", addr, data); // TODO: Make this use a debug flag
+                            println!("EA read-only resolution: ${:06X}.L = ${:08X}", addr, data);
                             data
                         }
                     }
@@ -157,6 +183,36 @@ impl Processor for M68K {
                     let (_, inst) = self.read(self.regs.pc as usize);
                     self.regs.pc += 2;
                     match inst & 0xF000 {
+                        0x0000 => match inst & 0x0FFF {
+                            x if x & 0x0800 == 0x0800 => {
+                                let mode = (x & 0x0038) >> 3;
+                                let reg = x & 0x0007;
+                                let (_, shift) = self.read(self.regs.pc as usize);
+                                self.regs.pc += 2;
+                                let (value, shift) = if mode <= 1 {
+                                    // Dn or An
+                                    (
+                                        self.ea_val(M68KSize::Long, mode as u8, reg as u8),
+                                        shift & 0x1F,
+                                    )
+                                } else {
+                                    // Memory operand
+                                    (
+                                        self.ea_val(M68KSize::Byte, mode as u8, reg as u8),
+                                        shift & 0x07,
+                                    )
+                                };
+                                println!("BTST #{}, #${:02X}", shift, value); // TODO: Correctly print 32-bit value of Dn / An
+                                if value & (1 << shift) == 0 {
+                                    self.regs.sr |= 0x4;
+                                    println!("Z flag set");
+                                } else {
+                                    self.regs.sr &= 0xFFFB;
+                                    println!("Z flag cleared");
+                                }
+                            }
+                            _ => todo!(),
+                        },
                         0x4000 => match inst & 0x0FFF {
                             0x0AFC => todo!(),
                             x if x & 0x0FC0 == 0x0AC0 => todo!(),
@@ -185,6 +241,31 @@ impl Processor for M68K {
                             }
                             _ => todo!(),
                         },
+                        0x6000 => {
+                            let cond = (inst & 0x0F00) >> 8;
+                            if cond == 0x1 {
+                                todo!();
+                            } else {
+                                let (passed, cc) = match cond {
+                                    0 => (true, "RA"),                    // BRA
+                                    1 => unreachable!(), // BSR; covered separately above
+                                    6 => (self.regs.sr & 0x4 == 0, "NE"), // BNE
+                                    7 => (self.regs.sr & 0x4 != 0, "EQ"), // BEQ
+                                    _ => todo!(),
+                                };
+                                let disp = sign_extend(M68KSize::Byte, (inst & 0x00FF) as u32);
+                                if disp == 0 || disp == 0xFFFF {
+                                    todo!();
+                                }
+                                let dest = self.regs.pc.wrapping_add(disp) & 0x00FFFFFF;
+                                println!("B{} ${:08X}", cc, dest);
+                                if passed {
+                                    println!("Condition passed");
+                                    self.stall += 2;
+                                    self.regs.pc = dest;
+                                }
+                            }
+                        }
                         _ => todo!(),
                     }
                 }

@@ -14,9 +14,6 @@ struct MdRomCartridge {
 
 impl BusDevice<M68KFault, 2> for MdRomCartridge {
     fn read(&mut self, addr: usize, result: &mut [u8; 2]) -> (Option<M68KFault>, [BusStatus; 2]) {
-        if addr % 2 == 1 {
-            panic!("Would be a fault, can't be bothered to find which fault it is");
-        }
         result[0] = ((self.data[addr / 2] >> 8) & 0xFF) as u8; // m68k is big-endian
         result[1] = (self.data[addr / 2] & 0xFF) as u8;
         (None, [BusStatus::Hit; 2])
@@ -45,7 +42,7 @@ struct MdCartridgeMapping {}
 impl BusTransform for MdCartridgeMapping {
     fn transform(&self, addr: usize) -> Option<usize> {
         if (addr & 0x00FFFFFF) < 0x400000 {
-            Some(addr & 0x00FFFFFF)
+            Some(addr & 0x00FFFFFE)
         } else {
             None
         }
@@ -70,7 +67,32 @@ struct MdIoAreaMapping {}
 impl BusTransform for MdIoAreaMapping {
     fn transform(&self, addr: usize) -> Option<usize> {
         if (addr & 0x00FFFFFF) >= 0xA10000 && (addr & 0x00FFFFFF) < 0xA10020 {
-            Some((addr & 0x0000001F) >> 1)
+            Some(addr & 0x0000001E)
+        } else {
+            None
+        }
+    }
+}
+
+struct MdVdpAreaDevice {}
+
+impl BusDevice<M68KFault, 2> for MdVdpAreaDevice {
+    fn read(&mut self, addr: usize, result: &mut [u8; 2]) -> (Option<M68KFault>, [BusStatus; 2]) {
+        result[0] = 0; // TODO
+        result[1] = 0;
+        (None, [BusStatus::Hit; 2])
+    }
+    fn write(&mut self, _: usize, _: &[u8; 2]) -> Option<M68KFault> {
+        None // TODO
+    }
+}
+
+struct MdVdpAreaMapping {}
+
+impl BusTransform for MdVdpAreaMapping {
+    fn transform(&self, addr: usize) -> Option<usize> {
+        if (addr & 0x00FFFFFF) >= 0xC00000 && (addr & 0x00FFFFFF) < 0xC00010 {
+            Some(addr & 0x0000000E)
         } else {
             None
         }
