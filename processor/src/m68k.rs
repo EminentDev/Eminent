@@ -84,11 +84,14 @@ impl M68K {
                     let (_, value) = self.read(self.regs.pc as usize);
                     self.regs.pc += 2;
                     let addr = pc.wrapping_add(sign_extend(M68KSize::Word, value as u32));
-                    println!("EA address resolution: (${:04X}, PC) (${:06X})", value, addr);
+                    println!(
+                        "EA address resolution: (${:04X}, PC) (${:06X})",
+                        value, addr
+                    );
                     M68KEffectiveAddress::Mem(addr)
                 }
                 _ => todo!(),
-            }
+            },
             _ => todo!(),
         }
     }
@@ -273,7 +276,8 @@ impl Processor for M68K {
                                 let ea = self.ea_addr(mode as u8, reg as u8);
                                 if let M68KEffectiveAddress::Mem(ea) = ea {
                                     println!("LEA ${:06X}, A{}", ea, dest);
-                                    if dest == 7 { // A7 is weird
+                                    if dest == 7 {
+                                        // A7 is weird
                                         todo!();
                                     } else {
                                         self.regs.a[dest as usize] = ea;
