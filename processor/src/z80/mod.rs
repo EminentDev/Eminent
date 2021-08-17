@@ -179,10 +179,8 @@ impl Z80 {
             instructions::Operand16::HL => get_reg16!(self.state, H, L),
             instructions::Operand16::IX => self.state.IX,
             instructions::Operand16::IY => self.state.IY,
-            instructions::Operand16::IXOffset(d) =>
-            // "<i8> as u16" performs a sign extension, wrapping_add does
-            // the same with unsigned as you would with signed
-            {
+            instructions::Operand16::IXOffset(d) => {
+                // "<i8> as u16" performs a sign extension, wrapping_add does the same with unsigned as you would with signed
                 self.state.IX.wrapping_add(d as u16)
             }
             instructions::Operand16::IYOffset(d) => self.state.IY.wrapping_add(d as u16),
