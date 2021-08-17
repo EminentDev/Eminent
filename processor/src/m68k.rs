@@ -267,7 +267,83 @@ impl Processor for M68K {
                                 }
                             }
                             x if x & 0x0F80 == 0x0C80 => {
-                                panic!("MOVEM")
+                                let (_, mut list) = self.read(self.regs.pc as usize);
+                                self.regs.pc += 2;
+                                self.stall += 4; // Read cycle for some unknown reason
+                                let mode = (x & 0x0038) >> 3;
+                                let reg = x & 0x0007;
+                                let list_str = "<formatting register lists is hard>";
+                                if x & 0x0040 == 0 {
+                                    // Word addressing
+                                    match mode {
+                                        3 => {
+                                            println!("MOVEM.W (A{})+, {}", reg, list_str);
+                                            for i in 0..8 {
+                                                // Data registers
+                                                if list & 1 == 1 {
+                                                    let (_, value) = self
+                                                        .read(self.regs.a[reg as usize] as usize);
+                                                    self.regs.d[i as usize] = value as u32;
+                                                    self.regs.a[reg as usize] += 2;
+                                                }
+                                                list >>= 1;
+                                            }
+                                            for i in 0..7 {
+                                                // Address registers
+                                                if list & 1 == 1 {
+                                                    let (_, value) = self
+                                                        .read(self.regs.a[reg as usize] as usize);
+                                                    self.regs.a[i as usize] = value as u32;
+                                                    self.regs.a[reg as usize] += 2;
+                                                }
+                                                list >>= 1;
+                                            }
+                                            if list == 1 {
+                                                todo!(); // You're trying to load into the stack pointer? Too complicated.
+                                            }
+                                        }
+                                        _ => todo!(),
+                                    }
+                                } else {
+                                    // Long addressing
+                                    match mode {
+                                        3 => {
+                                            println!("MOVEM.L (A{})+, {}", reg, list_str);
+                                            for i in 0..8 {
+                                                // Data registers
+                                                if list & 1 == 1 {
+                                                    let (_, value) = self
+                                                        .read(self.regs.a[reg as usize] as usize);
+                                                    self.temp = value;
+                                                    let (_, value) = self
+                                                        .read((self.regs.a[reg as usize] + 2) as usize);
+                                                    let value = (self.temp as u32) << 16 | value as u32;
+                                                    self.regs.a[reg as usize] += 4;
+                                                    self.regs.d[i as usize] = value as u32;
+                                                }
+                                                list >>= 1;
+                                            }
+                                            for i in 0..7 {
+                                                // Address registers
+                                                if list & 1 == 1 {
+                                                    let (_, value) = self
+                                                        .read(self.regs.a[reg as usize] as usize);
+                                                    self.temp = value;
+                                                    let (_, value) = self
+                                                        .read((self.regs.a[reg as usize] + 2) as usize);
+                                                    let value = (self.temp as u32) << 16 | value as u32;
+                                                    self.regs.a[reg as usize] += 4;
+                                                    self.regs.a[i as usize] = value as u32;
+                                                }
+                                                list >>= 1;
+                                            }
+                                            if list == 1 {
+                                                todo!(); // You're trying to load into the stack pointer? Too complicated.
+                                            }
+                                        }
+                                        _ => todo!(),
+                                    }
+                                }
                             }
                             x if x & 0x01C0 == 0x01C0 => {
                                 let dest = (x & 0x0E00) >> 9;
