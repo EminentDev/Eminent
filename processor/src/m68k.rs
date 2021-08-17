@@ -315,9 +315,11 @@ impl Processor for M68K {
                                                     let (_, value) = self
                                                         .read(self.regs.a[reg as usize] as usize);
                                                     self.temp = value;
-                                                    let (_, value) = self
-                                                        .read((self.regs.a[reg as usize] + 2) as usize);
-                                                    let value = (self.temp as u32) << 16 | value as u32;
+                                                    let (_, value) = self.read(
+                                                        (self.regs.a[reg as usize] + 2) as usize,
+                                                    );
+                                                    let value =
+                                                        (self.temp as u32) << 16 | value as u32;
                                                     self.regs.a[reg as usize] += 4;
                                                     self.regs.d[i as usize] = value as u32;
                                                 }
@@ -329,9 +331,11 @@ impl Processor for M68K {
                                                     let (_, value) = self
                                                         .read(self.regs.a[reg as usize] as usize);
                                                     self.temp = value;
-                                                    let (_, value) = self
-                                                        .read((self.regs.a[reg as usize] + 2) as usize);
-                                                    let value = (self.temp as u32) << 16 | value as u32;
+                                                    let (_, value) = self.read(
+                                                        (self.regs.a[reg as usize] + 2) as usize,
+                                                    );
+                                                    let value =
+                                                        (self.temp as u32) << 16 | value as u32;
                                                     self.regs.a[reg as usize] += 4;
                                                     self.regs.a[i as usize] = value as u32;
                                                 }
