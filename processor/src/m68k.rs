@@ -113,7 +113,8 @@ impl M68K {
                     todo!(); // A7 is hard
                 }
                 let (_, value) = self.read(self.regs.pc as usize);
-                let addr = self.regs.a[reg as usize].wrapping_add(sign_extend(M68KSize::Word, value as u32));
+                let addr = self.regs.a[reg as usize]
+                    .wrapping_add(sign_extend(M68KSize::Word, value as u32));
                 self.stall += 2;
                 match size {
                     M68KSize::Byte => {
