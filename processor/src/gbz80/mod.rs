@@ -1,6 +1,8 @@
 use crate::Processor;
 use common::ReadSeek;
 
+pub mod instructions;
+
 pub struct GbZ80 {}
 
 impl GbZ80 {
