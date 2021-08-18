@@ -6,6 +6,8 @@
 //! available, and that some designing will have to come before they are
 //! implementable.
 
+#![allow(clippy::unusual_byte_groupings)]
+
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -378,9 +380,7 @@ impl Z80 {
             instructions::Instruction::EXX => {
                 macro_rules! exchange {
                     ($op1: ident, $op2: ident) => {
-                        let tmp = self.state.$op1;
-                        self.state.$op1 = self.state.$op2;
-                        self.state.$op2 = tmp;
+                        std::mem::swap(&mut self.state.$op1, &mut self.state.$op2);
                     };
                 }
                 exchange!(B, Bprime);

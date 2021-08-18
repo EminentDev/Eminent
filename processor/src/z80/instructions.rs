@@ -548,7 +548,7 @@ pub fn decode2bytes(byte1: u8, byte2: u8) -> Option<Instruction> {
 /// `instructions::decode2bytes(byte1, byte2)` and it returned `None`.
 pub fn decode3bytes(byte1: u8, byte2: u8, byte3: u8) -> Option<Instruction> {
     let nn = u16::from_le_bytes([byte2, byte3]);
-    let nnimmediate = Operand16::Immediate(nn.clone());
+    let nnimmediate = Operand16::Immediate(nn);
     match byte1 {
         0xDD | 0xFD => {
             let iroffset = if byte1 == 0xDD {
