@@ -113,6 +113,7 @@ impl M68K {
                     todo!(); // A7 is hard
                 }
                 let (_, value) = self.read(self.regs.pc as usize);
+                self.regs.pc += 2;
                 let addr = self.regs.a[reg as usize]
                     .wrapping_add(sign_extend(M68KSize::Word, value as u32));
                 self.stall += 2;
@@ -258,6 +259,49 @@ impl Processor for M68K {
                     self.regs.pc += 2;
                     match inst & 0xF000 {
                         0x0000 => match inst & 0x0FFF {
+                            x if x & 0x0F00 == 0x0200 => {
+                                let size = M68KSize::from_two_bit(((inst & 0x00C0) >> 6) as u8);
+                                let mode = (inst & 0x0038) >> 3;
+                                let reg = inst & 0x0007;
+                                let imm = match size {
+                                    M68KSize::Long => todo!(), // More work
+                                    _ => {
+                                        let (_, imm) = self.read(self.regs.pc as usize);
+                                        self.regs.pc += 2;
+                                        imm
+                                    }
+                                };
+                                let addr = self.ea_addr(mode as u8, reg as u8);
+                                match addr {
+                                    M68KEffectiveAddress::D(x) => {
+                                        println!("ANDI #{:08X}, D{}", imm, x);
+                                        self.regs.d[x as usize] &= imm as u32;
+                                        self.regs.sr &= 0xFFFC;
+                                        println!("C flag cleared");
+                                        println!("V flag cleared");
+                                        if self.regs.d[x as usize] == 0 {
+                                            self.regs.sr |= 0x4;
+                                            println!("Z flag set");
+                                        } else {
+                                            self.regs.sr &= 0xFFFB;
+                                            println!("Z flag cleared");
+                                        }
+                                        match size {
+                                            M68KSize::Byte => {
+                                                if self.regs.d[x as usize] & 0x80 != 0 {
+                                                    self.regs.sr |= 0x8;
+                                                    println!("N flag set");
+                                                } else {
+                                                    self.regs.sr &= 0xFFF7;
+                                                    println!("N flag cleared");
+                                                }
+                                            }
+                                            _ => todo!(),
+                                        }
+                                    }
+                                    _ => todo!(),
+                                }
+                            }
                             x if x & 0x0800 == 0x0800 => {
                                 let mode = (inst & 0x0038) >> 3;
                                 let reg = inst & 0x0007;
