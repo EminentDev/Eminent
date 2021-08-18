@@ -422,12 +422,18 @@ impl Processor for M68K {
                             match dest {
                                 M68KEffectiveAddress::D(x) => {
                                     match size {
-                                    M68KSize::Byte => {
-                                    println!("MOVE.B #${:02X}, D{}", src, x); self.regs.d[x as usize] &= 0xFFFFFF00;}
-                                    M68KSize::Word => {
-                                    println!("MOVE.W #${:04X}, D{}", src, x); self.regs.d[x as usize] &= 0xFFFF0000;}
-                                    M68KSize::Long => {
-                                    println!("MOVE.L #${:08X}, D{}", src, x); self.regs.d[x as usize] = 0;}
+                                        M68KSize::Byte => {
+                                            println!("MOVE.B #${:02X}, D{}", src, x);
+                                            self.regs.d[x as usize] &= 0xFFFFFF00;
+                                        }
+                                        M68KSize::Word => {
+                                            println!("MOVE.W #${:04X}, D{}", src, x);
+                                            self.regs.d[x as usize] &= 0xFFFF0000;
+                                        }
+                                        M68KSize::Long => {
+                                            println!("MOVE.L #${:08X}, D{}", src, x);
+                                            self.regs.d[x as usize] = 0;
+                                        }
                                     }
                                     self.regs.d[x as usize] |= src;
                                 }
@@ -436,12 +442,18 @@ impl Processor for M68K {
                                         todo!();
                                     }
                                     match size {
-                                    M68KSize::Byte => {
-                                    println!("MOVE.B #${:02X}, A{}", src, x); self.regs.a[x as usize] &= 0xFFFFFF00;}
-                                    M68KSize::Word => {
-                                    println!("MOVE.W #${:04X}, A{}", src, x); self.regs.a[x as usize] &= 0xFFFF0000;}
-                                    M68KSize::Long => {
-                                    println!("MOVE.L #${:08X}, A{}", src, x); self.regs.a[x as usize] = 0;}
+                                        M68KSize::Byte => {
+                                            println!("MOVE.B #${:02X}, A{}", src, x);
+                                            self.regs.a[x as usize] &= 0xFFFFFF00;
+                                        }
+                                        M68KSize::Word => {
+                                            println!("MOVE.W #${:04X}, A{}", src, x);
+                                            self.regs.a[x as usize] &= 0xFFFF0000;
+                                        }
+                                        M68KSize::Long => {
+                                            println!("MOVE.L #${:08X}, A{}", src, x);
+                                            self.regs.a[x as usize] = 0;
+                                        }
                                     }
                                     self.regs.a[x as usize] |= src;
                                 }
