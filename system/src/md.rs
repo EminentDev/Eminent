@@ -115,6 +115,9 @@ impl FileLoader for MdFileLoader {
         m68k_bus
             .borrow_mut()
             .add_device(Box::new(MdIoAreaDevice {}), Box::new(MdIoAreaMapping {}));
+        m68k_bus
+            .borrow_mut()
+            .add_device(Box::new(MdVdpAreaDevice {}), Box::new(MdVdpAreaMapping {}));
         let m68k = M68K::new(Rc::clone(&m68k_bus));
         Box::new(MdSystem {
             m68k_bus,

@@ -87,7 +87,14 @@ impl M68K {
 
     fn ea_addr(&mut self, mode: u8, reg: u8) -> M68KEffectiveAddress {
         match mode {
-            0 => M68KEffectiveAddress::D(reg),
+            0 => {
+                println!("EA address resolution: D{}", reg);
+                M68KEffectiveAddress::D(reg)
+            }
+            1 => {
+                println!("EA address resolution: A{}", reg);
+                M68KEffectiveAddress::A(reg)
+            }
             7 => match reg {
                 2 => {
                     let pc = self.regs.pc; // PC is saved here, before reading displacement
@@ -108,6 +115,76 @@ impl M68K {
 
     fn ea_val(&mut self, size: M68KSize, mode: u8, reg: u8) -> u32 {
         match mode {
+            0 => {
+                let value = match size {
+                    M68KSize::Byte => self.regs.d[reg as usize] & 0x00FF,
+                    M68KSize::Word => self.regs.d[reg as usize] & 0xFFFF,
+                    M68KSize::Long => self.regs.d[reg as usize],
+                };
+                println!("EA read-only resolution: D{} = ${:08X}", reg, value);
+                value
+            }
+            2 => {
+                if reg == 7 {
+                    todo!();
+                }
+                let addr = self.regs.a[reg as usize];
+                match size {
+                    M68KSize::Word => {
+                        let (_, value) = self.read(addr as usize);
+                        println!(
+                            "EA read-only resolution: (A{}) (${:06X}) = ${:04X}",
+                            reg, addr, value
+                        );
+                        value as u32
+                    }
+                    _ => todo!(),
+                }
+            }
+            3 => {
+                if reg == 7 {
+                    todo!();
+                }
+                match size {
+                    M68KSize::Byte => {
+                        let addr = self.regs.a[reg as usize];
+                        self.regs.a[reg as usize] += 1;
+                        let (_, data) = self.read((addr & 0xFFFFFE) as usize);
+                        if addr & 0x000001 != 0 {
+                            // Low byte, high address
+                            println!(
+                                "EA read-only resolution: (A{})+ (${:06X}) = $({:02X}){:02X}",
+                                reg,
+                                addr,
+                                (data & 0xFF00) >> 8,
+                                data & 0x00FF
+                            );
+                            (data & 0x00FF) as u32
+                        } else {
+                            // High byte, low address
+                            println!(
+                                "EA read-only resolution: (A{})+ (${:06X}) = ${:02X}({:02X})",
+                                reg,
+                                addr,
+                                (data & 0xFF00) >> 8,
+                                data & 0x00FF
+                            );
+                            ((data & 0xFF00) >> 8) as u32
+                        }
+                    }
+                    M68KSize::Word => {
+                        let addr = self.regs.a[reg as usize];
+                        self.regs.a[reg as usize] += 2;
+                        let (_, value) = self.read(addr as usize);
+                        println!(
+                            "EA read-only resolution: (A{}) (${:06X}) = ${:04X}",
+                            reg, addr, value
+                        );
+                        value as u32
+                    }
+                    _ => todo!(),
+                }
+            }
             5 => {
                 if reg == 7 {
                     todo!(); // A7 is hard
@@ -344,8 +421,29 @@ impl Processor for M68K {
                             let dest = self.ea_addr(dest_mode as u8, dest_reg as u8);
                             match dest {
                                 M68KEffectiveAddress::D(x) => {
-                                    println!("MOVE #${:08X}, D{}", src, x);
-                                    self.regs.d[x as usize] = src;
+                                    match size {
+                                    M68KSize::Byte => {
+                                    println!("MOVE.B #${:02X}, D{}", src, x); self.regs.d[x as usize] &= 0xFFFFFF00;}
+                                    M68KSize::Word => {
+                                    println!("MOVE.W #${:04X}, D{}", src, x); self.regs.d[x as usize] &= 0xFFFF0000;}
+                                    M68KSize::Long => {
+                                    println!("MOVE.L #${:08X}, D{}", src, x); self.regs.d[x as usize] = 0;}
+                                    }
+                                    self.regs.d[x as usize] |= src;
+                                }
+                                M68KEffectiveAddress::A(x) => {
+                                    if x == 7 {
+                                        todo!();
+                                    }
+                                    match size {
+                                    M68KSize::Byte => {
+                                    println!("MOVE.B #${:02X}, A{}", src, x); self.regs.a[x as usize] &= 0xFFFFFF00;}
+                                    M68KSize::Word => {
+                                    println!("MOVE.W #${:04X}, A{}", src, x); self.regs.a[x as usize] &= 0xFFFF0000;}
+                                    M68KSize::Long => {
+                                    println!("MOVE.L #${:08X}, A{}", src, x); self.regs.a[x as usize] = 0;}
+                                    }
+                                    self.regs.a[x as usize] |= src;
                                 }
                                 _ => todo!(),
                             }
@@ -374,6 +472,16 @@ impl Processor for M68K {
                                     println!("N flag set");
                                 } else {
                                     println!("N flag cleared");
+                                }
+                            }
+                            x if x & 0x0FF0 == 0x0E60 => {
+                                let reg = inst & 0x0007;
+                                if inst & 0x0008 == 0 {
+                                    println!("MOVE A{}, USP", reg);
+                                    self.regs.usp = self.regs.a[reg as usize];
+                                } else {
+                                    println!("MOVE USP, A{}", reg);
+                                    self.regs.a[reg as usize] = self.regs.usp;
                                 }
                             }
                             x if x & 0x0F80 == 0x0C80 => {
@@ -502,6 +610,15 @@ impl Processor for M68K {
                                     self.regs.pc = dest;
                                 }
                             }
+                        }
+                        0x7000 => {
+                            if inst & 0x0100 != 0 {
+                                panic!("Illegal instruction");
+                            }
+                            let reg = (inst & 0x0E00) >> 9;
+                            let data = sign_extend(M68KSize::Byte, (inst & 0x00FF) as u32);
+                            println!("MOVEQ #${:08X}, D{}", data, reg);
+                            self.regs.d[reg as usize] = data;
                         }
                         _ => todo!(),
                     }
