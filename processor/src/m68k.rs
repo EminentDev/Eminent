@@ -638,7 +638,8 @@ impl Processor for M68K {
                                 if !passed {
                                     self.stall += 2;
                                     passed = self.regs.d[reg as usize] == 0; // If it's zero, we don't want to branch.
-                                    self.regs.d[reg as usize] = self.regs.d[reg as usize].wrapping_sub(1);
+                                    self.regs.d[reg as usize] =
+                                        self.regs.d[reg as usize].wrapping_sub(1);
                                 }
                                 if !passed {
                                     // So, funnily enough, we only branch if the condition *hasn't* passed.
