@@ -193,7 +193,16 @@ impl M68K {
                         );
                         value as u32
                     }
-                    _ => todo!(),
+                    M68KSize::Long => {
+                        let addr = self.regs.a[reg as usize];
+                        self.regs.a[reg as usize] += 4;
+                        let (_, value) = self.read(addr as usize);
+                        self.temp = value;
+                        let (_, value) = self.read((addr + 2) as usize);
+                        let data = (self.temp as u32) << 16 | value as u32;
+                        println!("EA read-only resolution: (A{}) (${:06X}) = ${:08X}", reg, addr, data);
+                        data
+                    }
                 }
             }
             5 => {
