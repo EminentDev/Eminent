@@ -95,6 +95,19 @@ impl M68K {
                 println!("EA address resolution: A{}", reg);
                 M68KEffectiveAddress::A(reg)
             }
+            2 => {
+                if reg == 7 {
+                    todo!();
+                }
+                let (_, value) = self.read(self.regs.a[reg as usize] as usize);
+                self.regs.pc += 2;
+                self.temp = value;
+                let (_, value) = self.read(self.regs.a[reg as usize] as usize);
+                self.regs.pc += 2;
+                let addr = (self.temp as u32) << 16 | (value as u32);
+                println!("EA address resolution: (A{}) (${:06X})", reg, addr);
+                M68KEffectiveAddress::Mem(addr)
+            }
             7 => match reg {
                 2 => {
                     let pc = self.regs.pc; // PC is saved here, before reading displacement
@@ -285,6 +298,15 @@ impl M68K {
             (fault, (value[0] as u16) << 8 | value[1] as u16)
         }
     }
+
+    fn write(&mut self, addr: usize, data: u16) -> Option<M68KFault> {
+        unsafe {
+            // SAFETY: Assume we're fine.
+            let (fault, _) = self.bus.borrow().write(addr, &[((data & 0xFF00) >> 8) as u8, (data & 0xFF) as u8]);
+            self.stall += 4; // Each write takes 4 cycles. No matter what.
+            fault
+        }
+    }
 }
 
 fn sign_extend(size: M68KSize, data: u32) -> u32 {
@@ -457,7 +479,13 @@ impl Processor for M68K {
                                     }
                                     self.regs.a[x as usize] |= src;
                                 }
-                                _ => todo!(),
+                                M68KEffectiveAddress::Mem(x) => match size {
+                                    M68KSize::Word => {
+                                        println!("MOVE.W #${:04X}, ${:06X}", src, x);
+                                        self.write(x as usize, src as u16);
+                                    }
+                                    _ => todo!(),
+                                }
                             }
                         }
                         0x4000 => match inst & 0x0FFF {
