@@ -645,9 +645,9 @@ impl Processor for M68K {
                                 };
                                 let reg = inst & 0x0003;
                                 let (_, disp) = self.read(self.regs.pc as usize);
-                                self.regs.pc += 2;
                                 let disp = sign_extend(M68KSize::Word, disp as u32);
                                 let addr = self.regs.pc.wrapping_add(disp) & 0x00FFFFFF;
+                                self.regs.pc += 2;
                                 println!("DB{} D{}, ${:06X}", cc, reg, addr);
                                 if !passed {
                                     self.stall += 2;
