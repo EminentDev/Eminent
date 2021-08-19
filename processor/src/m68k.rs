@@ -627,6 +627,35 @@ impl Processor for M68K {
                             }
                             _ => todo!(),
                         },
+                        0x5000 => match inst & 0x0FFF {
+                            x if x & 0x00F8 == 0x00C8 => {
+                                let cond = (inst & 0x0F00) >> 8;
+                                let (mut passed, cc) = match cond {
+                                    1 => (false, "F"), // DBF
+                                    _ => todo!(),
+                                };
+                                let reg = inst & 0x0003;
+                                if !passed {
+                                    self.stall += 2;
+                                    passed = self.regs.d[reg as usize] == 0; // If it's zero, we don't want to branch.
+                                    self.regs.d[reg as usize] = self.regs.d[reg as usize].wrapping_sub(1);
+                                }
+                                if !passed {
+                                    // So, funnily enough, we only branch if the condition *hasn't* passed.
+                                    self.stall += 4;
+                                    let (_, disp) = self.read(self.regs.pc as usize);
+                                    self.regs.pc += 2;
+                                    let disp = sign_extend(M68KSize::Word, disp as u32);
+                                    let addr = self.regs.pc.wrapping_add(disp) & 0x00FFFFFF;
+                                    println!("DB{} D{}, ${:06X}\nCondition passed", cc, reg, addr);
+                                    self.regs.pc = addr;
+                                } else {
+                                    self.stall += 10; // Pipeline miss?
+                                    println!("DB{} D{}, <address not read>", cc, reg);
+                                }
+                            }
+                            _ => todo!(),
+                        },
                         0x6000 => {
                             let cond = (inst & 0x0F00) >> 8;
                             if cond == 0x1 {
