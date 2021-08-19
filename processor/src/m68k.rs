@@ -302,7 +302,10 @@ impl M68K {
     fn write(&mut self, addr: usize, data: u16) -> Option<M68KFault> {
         unsafe {
             // SAFETY: Assume we're fine.
-            let (fault, _) = self.bus.borrow().write(addr, &[((data & 0xFF00) >> 8) as u8, (data & 0xFF) as u8]);
+            let (fault, _) = self
+                .bus
+                .borrow()
+                .write(addr, &[((data & 0xFF00) >> 8) as u8, (data & 0xFF) as u8]);
             self.stall += 4; // Each write takes 4 cycles. No matter what.
             fault
         }
@@ -485,7 +488,7 @@ impl Processor for M68K {
                                         self.write(x as usize, src as u16);
                                     }
                                     _ => todo!(),
-                                }
+                                },
                             }
                         }
                         0x4000 => match inst & 0x0FFF {
