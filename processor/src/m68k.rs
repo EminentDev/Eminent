@@ -100,10 +100,8 @@ impl M68K {
                     todo!();
                 }
                 let (_, value) = self.read(self.regs.a[reg as usize] as usize);
-                self.regs.pc += 2;
                 self.temp = value;
-                let (_, value) = self.read(self.regs.a[reg as usize] as usize);
-                self.regs.pc += 2;
+                let (_, value) = self.read((self.regs.a[reg as usize] + 2) as usize);
                 let addr = (self.temp as u32) << 16 | (value as u32);
                 println!("EA address resolution: (A{}) (${:06X})", reg, addr);
                 M68KEffectiveAddress::Mem(addr)
@@ -663,6 +661,71 @@ impl Processor for M68K {
                             println!("MOVEQ #${:08X}, D{}", data, reg);
                             self.regs.d[reg as usize] = data;
                         }
+                        0xD000 => match inst & 0x0FFF {
+                            x if x & 0x00C0 == 0x00C0 => todo!(),
+                            x if x & 0x0130 == 0x0100 => todo!(),
+                            _ => {
+                                if inst & 0x0100 == 0 {
+                                    let size = M68KSize::from_two_bit(((inst & 0x01C0) >> 6) as u8);
+                                    let mode = (inst & 0x0038) >> 3;
+                                    let reg = inst & 0x0007;
+                                    let breg = (inst & 0x0E00) >> 9;
+                                    let a = self.ea_val(size, mode as u8, reg as u8);
+                                    let b = self.regs.d[breg as usize];
+                                    let (result, overflow, carry) = match size {
+                                        M68KSize::Word => {
+                                            println!("ADD.W #${:04X}, D{}", a, breg);
+                                            let result = a as u32 + b as u32;
+                                            // Credit where credit is due to StackOverflow:
+                                            let overflow =
+                                                ((!(a ^ b)) & (a ^ result) & 0x8000) != 0;
+                                            let carry = result > 0xFFFF;
+                                            self.regs.d[breg as usize] &= 0xFFFF0000;
+                                            self.regs.d[breg as usize] |= result;
+                                            (result & 0x0000FFFF, overflow, carry)
+                                        }
+                                        _ => todo!(),
+                                    };
+                                    if carry {
+                                        println!("C flag set");
+                                        self.regs.sr |= 0x0001;
+                                    } else {
+                                        println!("C flag cleared");
+                                        self.regs.sr &= 0xFFFE;
+                                    }
+                                    if overflow {
+                                        println!("V flag set");
+                                        self.regs.sr |= 0x0002;
+                                    } else {
+                                        println!("V flag cleared");
+                                        self.regs.sr &= 0xFFFD;
+                                    }
+                                    if result == 0 {
+                                        println!("Z flag set");
+                                        self.regs.sr |= 0x0004;
+                                    } else {
+                                        println!("Z flag cleared");
+                                        self.regs.sr &= 0xFFFB;
+                                    }
+                                    if sign_extend(size, result) & 0x80000000 != 0 {
+                                        println!("N flag set");
+                                        self.regs.sr |= 0x0008;
+                                    } else {
+                                        println!("N flag cleared");
+                                        self.regs.sr &= 0xFFF7;
+                                    }
+                                    if carry {
+                                        println!("X flag set");
+                                        self.regs.sr |= 0x0010;
+                                    } else {
+                                        println!("X flag cleared");
+                                        self.regs.sr &= 0xFFEF;
+                                    }
+                                } else {
+                                    todo!();
+                                }
+                            }
+                        },
                         _ => todo!(),
                     }
                 }
