@@ -200,7 +200,10 @@ impl M68K {
                         self.temp = value;
                         let (_, value) = self.read((addr + 2) as usize);
                         let data = (self.temp as u32) << 16 | value as u32;
-                        println!("EA read-only resolution: (A{}) (${:06X}) = ${:08X}", reg, addr, data);
+                        println!(
+                            "EA read-only resolution: (A{}) (${:06X}) = ${:08X}",
+                            reg, addr, data
+                        );
                         data
                     }
                 }
