@@ -411,7 +411,7 @@ impl Processor for M68K {
                                     _ => todo!(),
                                 }
                             }
-                            x if x & 0x0800 == 0x0800 => {
+                            x if x & 0x0FC0 == 0x0800 => {
                                 let mode = (inst & 0x0038) >> 3;
                                 let reg = inst & 0x0007;
                                 let (_, shift) = self.read(self.regs.pc as usize);
