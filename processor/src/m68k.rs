@@ -138,6 +138,31 @@ impl M68K {
                 }
                 let addr = self.regs.a[reg as usize];
                 match size {
+                    M68KSize::Byte => {
+                        let addr = self.regs.a[reg as usize];
+                        let (_, data) = self.read((addr & 0xFFFFFE) as usize);
+                        if addr & 0x000001 != 0 {
+                            // Low byte, high address
+                            println!(
+                                "EA read-only resolution: (A{})+ (${:06X}) = $({:02X}){:02X}",
+                                reg,
+                                addr,
+                                (data & 0xFF00) >> 8,
+                                data & 0x00FF
+                            );
+                            (data & 0x00FF) as u32
+                        } else {
+                            // High byte, low address
+                            println!(
+                                "EA read-only resolution: (A{})+ (${:06X}) = ${:02X}({:02X})",
+                                reg,
+                                addr,
+                                (data & 0xFF00) >> 8,
+                                data & 0x00FF
+                            );
+                            ((data & 0xFF00) >> 8) as u32
+                        }
+                    }
                     M68KSize::Word => {
                         let (_, value) = self.read(addr as usize);
                         println!(
@@ -416,6 +441,33 @@ impl Processor for M68K {
                                 let reg = inst & 0x0007;
                                 let (_, shift) = self.read(self.regs.pc as usize);
                                 self.regs.pc += 2;
+                                let (value, shift) = if mode <= 1 {
+                                    // Dn or An
+                                    self.stall += 2; // Apparently something has to happen internally
+                                    (
+                                        self.ea_val(M68KSize::Long, mode as u8, reg as u8),
+                                        shift & 0x1F,
+                                    )
+                                } else {
+                                    // Memory operand
+                                    (
+                                        self.ea_val(M68KSize::Byte, mode as u8, reg as u8),
+                                        shift & 0x07,
+                                    )
+                                };
+                                println!("BTST #{}, #${:02X}", shift, value); // TODO: Correctly print 32-bit value of Dn / An
+                                if value & (1 << shift) == 0 {
+                                    self.regs.sr |= 0x4;
+                                    println!("Z flag set");
+                                } else {
+                                    self.regs.sr &= 0xFFFB;
+                                    println!("Z flag cleared");
+                                }
+                            }
+                            x if x & 0x01C0 == 0x0100 => {
+                                let mode = (inst & 0x0038) >> 3;
+                                let reg = inst & 0x0007;
+                                let shift = self.regs.d[((inst & 0x0E00) >> 9) as usize];
                                 let (value, shift) = if mode <= 1 {
                                     // Dn or An
                                     self.stall += 2; // Apparently something has to happen internally
