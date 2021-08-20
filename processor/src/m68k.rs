@@ -85,7 +85,7 @@ impl M68K {
         }
     }
 
-    fn ea_addr(&mut self, mode: u8, reg: u8) -> M68KEffectiveAddress {
+    fn ea_addr(&mut self, size: M68KSize, mode: u8, reg: u8) -> M68KEffectiveAddress {
         match mode {
             0 => {
                 println!("EA address resolution: D{}", reg);
@@ -188,7 +188,7 @@ impl M68K {
                         self.regs.a[reg as usize] += 2;
                         let (_, value) = self.read(addr as usize);
                         println!(
-                            "EA read-only resolution: (A{}) (${:06X}) = ${:04X}",
+                            "EA read-only resolution: (A{})+ (${:06X}) = ${:04X}",
                             reg, addr, value
                         );
                         value as u32
@@ -201,7 +201,7 @@ impl M68K {
                         let (_, value) = self.read((addr + 2) as usize);
                         let data = (self.temp as u32) << 16 | value as u32;
                         println!(
-                            "EA read-only resolution: (A{}) (${:06X}) = ${:08X}",
+                            "EA read-only resolution: (A{})+ (${:06X}) = ${:08X}",
                             reg, addr, data
                         );
                         data
@@ -383,7 +383,7 @@ impl Processor for M68K {
                                         imm
                                     }
                                 };
-                                let addr = self.ea_addr(mode as u8, reg as u8);
+                                let addr = self.ea_addr(size, mode as u8, reg as u8);
                                 match addr {
                                     M68KEffectiveAddress::D(x) => {
                                         println!("ANDI #{:08X}, D{}", imm, x);
@@ -453,7 +453,7 @@ impl Processor for M68K {
                             let src_reg = inst & 0x0007;
                             // TODO: I currently assume src is resolved first; I don't have proof of this.
                             let src = self.ea_val(size, src_mode as u8, src_reg as u8);
-                            let dest = self.ea_addr(dest_mode as u8, dest_reg as u8);
+                            let dest = self.ea_addr(size, dest_mode as u8, dest_reg as u8);
                             match dest {
                                 M68KEffectiveAddress::D(x) => {
                                     match size {
@@ -496,6 +496,11 @@ impl Processor for M68K {
                                     M68KSize::Word => {
                                         println!("MOVE.W #${:04X}, ${:06X}", src, x);
                                         self.write(x as usize, src as u16);
+                                    }
+                                    M68KSize::Long => {
+                                        println!("MOVE.L #${:08X}, ${:06X}", src, x);
+                                        self.write(((x & 0xFF00) >> 8) as usize, src as u16);
+                                        self.write((x & 0x00FF) as usize, (src + 2) as u16);
                                     }
                                     _ => todo!(),
                                 },
@@ -624,7 +629,7 @@ impl Processor for M68K {
                                 let dest = (inst & 0x0E00) >> 9;
                                 let mode = (inst & 0x0038) >> 3;
                                 let reg = inst & 0x0007;
-                                let ea = self.ea_addr(mode as u8, reg as u8);
+                                let ea = self.ea_addr(M68KSize::Byte, mode as u8, reg as u8);
                                 if let M68KEffectiveAddress::Mem(ea) = ea {
                                     println!("LEA ${:06X}, A{}", ea, dest);
                                     if dest == 7 {
