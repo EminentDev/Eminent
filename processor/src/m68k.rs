@@ -99,10 +99,7 @@ impl M68K {
                 if reg == 7 {
                     todo!();
                 }
-                let (_, value) = self.read(self.regs.a[reg as usize] as usize);
-                self.temp = value;
-                let (_, value) = self.read((self.regs.a[reg as usize] + 2) as usize);
-                let addr = (self.temp as u32) << 16 | (value as u32);
+                let addr = self.regs.a[reg as usize];
                 println!("EA address resolution: (A{}) (${:06X})", reg, addr);
                 M68KEffectiveAddress::Mem(addr)
             }
