@@ -1,6 +1,7 @@
 use crate::{FileLoader, System};
 use common::{Bus, BusDevice, BusStatus, BusTransform, ReadSeek};
 use processor::m68k::{M68KFault, M68K};
+use processor::z80::{Z80Fault, Z80};
 use processor::Processor;
 use std::cell::RefCell;
 use std::ffi::OsStr;
@@ -119,9 +120,15 @@ impl FileLoader for MdFileLoader {
             .borrow_mut()
             .add_device(Box::new(MdVdpAreaDevice {}), Box::new(MdVdpAreaMapping {}));
         let m68k = M68K::new(Rc::clone(&m68k_bus));
+
+        let z80_bus = Rc::new(RefCell::new(Bus::new()));
+        let z80 = Z80::new(Rc::clone(&z80_bus));
+
         Box::new(MdSystem {
             m68k_bus,
             m68k,
+            z80_bus,
+            z80,
             cycle_index: 0,
         })
     }
@@ -130,6 +137,8 @@ impl FileLoader for MdFileLoader {
 pub struct MdSystem {
     m68k_bus: Rc<RefCell<Bus<M68KFault, 2>>>,
     m68k: M68K,
+    z80_bus: Rc<RefCell<Bus<Z80Fault, 1>>>,
+    z80: Z80,
     cycle_index: u16,
 }
 
@@ -137,7 +146,10 @@ impl System for MdSystem {
     fn tick(&mut self, num_cycles: u64) {
         for _ in 0..num_cycles {
             if self.cycle_index % 7 == 0 {
-                self.m68k.tick()
+                self.m68k.tick();
+            }
+            if self.cycle_index % 15 == 0 {
+                self.z80.tick();
             }
             self.cycle_index = (self.cycle_index + 1) % 420; // One processor divides by 15, one divides by 7, one diviides by 4.
         }
