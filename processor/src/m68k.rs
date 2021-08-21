@@ -144,7 +144,7 @@ impl M68K {
                         if addr & 0x000001 != 0 {
                             // Low byte, high address
                             println!(
-                                "EA read-only resolution: (A{})+ (${:06X}) = $({:02X}){:02X}",
+                                "EA read-only resolution: (A{}) (${:06X}) = $({:02X}){:02X}",
                                 reg,
                                 addr,
                                 (data & 0xFF00) >> 8,
@@ -154,7 +154,7 @@ impl M68K {
                         } else {
                             // High byte, low address
                             println!(
-                                "EA read-only resolution: (A{})+ (${:06X}) = ${:02X}({:02X})",
+                                "EA read-only resolution: (A{}) (${:06X}) = ${:02X}({:02X})",
                                 reg,
                                 addr,
                                 (data & 0xFF00) >> 8,
