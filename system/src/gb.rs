@@ -5,12 +5,18 @@ use std::path::Path;
 use std::rc::Rc;
 
 use crate::{FileLoader, System};
-use common::{Bus, ReadSeek};
+use common::{Bus, BusDevice, ReadSeek};
 use processor::gbz80::{GbZ80Fault, GbZ80};
 
 pub mod bus;
 
 const KIB: usize = 1024;
+
+/// Location in ROM of the "cartridge type" field of the cartridge header.
+pub const HEADER_CARTRIDGE_TYPE_ADDR: usize = 0x147;
+
+/// Location in ROM of the "RAM size" field of the cartridge header.
+pub const HEADER_RAM_SIZE_ADDR: usize = 0x149;
 
 /// When bootROM emulation is activated, which step will be executed next tick.
 pub enum BootStep {
@@ -65,13 +71,15 @@ impl GbSystem {
 
     /// Create a GbSystem with no bootROM.
     ///
-    /// The behaviour of the bootROM will be emulated. This can provide better 
+    /// The behaviour of the bootROM will be emulated. This can provide better
     /// information about what's happening during the boot process, at the
     /// expense of less accurate information
     ///
     /// # Panics
     ///
-    /// Panic on `rom.seek()` or `rom.read()` error.
+    /// Panic on:
+    /// * `rom.seek()` or `rom.read()` error
+    /// * invalid ROM header
     pub fn new_emulate_bootrom(rom: &mut dyn ReadSeek) -> GbSystem {
         let bus = Rc::new(RefCell::new(Bus::<GbZ80Fault, 1>::new()));
         let proc = GbZ80::new(bus.clone());
@@ -91,7 +99,9 @@ impl GbSystem {
     ///
     /// # Panics
     ///
-    /// Panic on `seek()` or `read()` error from either parameter.
+    /// Panic on:
+    /// * `seek()` or `read()` error from either parameter
+    /// * invalid ROM header
     pub fn new_with_bootrom(bootrom: &mut dyn ReadSeek, rom: &mut dyn ReadSeek)
             -> GbSystem {
         bootrom.seek(SeekFrom::Start(0)).expect("Reading GB BootROM");
@@ -123,10 +133,95 @@ impl GbSystem {
     ///
     /// # Panics
     ///
-    /// Panic on `rom.seek()` or `rom.read()` error.
-    fn instanciate(rom: &mut dyn ReadSeek, _bus: Rc<RefCell<Bus<GbZ80Fault, 1>>>,
+    /// Panic on:
+    /// * `rom.seek()` or `rom.read()` error
+    /// * invalid ROM header
+    fn instanciate(rom: &mut dyn ReadSeek,
+                   mut bus: Rc<RefCell<Bus<GbZ80Fault, 1>>>,
                    _proc: GbZ80, _step: BootStep) -> GbSystem {
-        let mut _rombanks = GbSystem::split_rom(rom);
+        // mut because `read()` requires it
+        let mut rombanks = GbSystem::split_rom(rom);
+
+        let mut value = [0];
+
+        let _ = rombanks.get_mut(0)
+            .expect("Reading cartridge header")
+            .read(HEADER_RAM_SIZE_ADDR, &mut value);
+        let rambanks_num = match value[0] {
+            0x00 => 0,
+            0x02 => 1,
+            0x03 => 4,
+            0x04 => 16,
+            0x05 => 8,
+            x => panic!("Unknown cartridge header RAM size value: {:#04}", x),
+        };
+        let mut rambanks = Vec::new();
+        for _ in 0..rambanks_num {
+            rambanks.push(bus::RamBank::new());
+        }
+
+        // Macro to borrow the bus and Box the parameters.
+        macro_rules! add_device {
+            ($device: expr, $transform: expr) => {
+                Rc::get_mut(&mut bus)
+                    .unwrap()
+                    .get_mut()
+                    .add_device(Box::new($device), Box::new($transform));
+            };
+        }
+        let _ = rombanks.get_mut(0)
+            .expect("Reading cartridge header")
+            .read(HEADER_CARTRIDGE_TYPE_ADDR, &mut value);
+        match value[0] {
+            0x00 => {
+                // ROM, with no switch
+
+                // We know rombanks[0] exists because of the `expect` earlier.
+                add_device!(rombanks.remove(0),
+                            bus::SimpleMapping::new(0x0000, 16 * KIB));
+
+                if !rombanks.is_empty() {
+                    add_device!(rombanks.remove(0),
+                                bus::SimpleMapping::new(0x4000, 16 * KIB));
+                }
+            }
+            0x01 => {
+                // MBC1, no RAM
+                add_device!(bus::MBC1::new(rombanks, Vec::new()),
+                            bus::ROMswRAMMapping {});
+            }
+            0x02 | 0x03 => {
+                // MBC1, with RAM
+                add_device!(bus::MBC1::new(rombanks, rambanks),
+                            bus::ROMswRAMMapping {});
+            }
+            0x05 | 0x06 => {
+                // MBC2
+                add_device!(bus::MBC2::new(rombanks, [0; 512]),
+                            bus::ROMswRAMMapping {});
+            }
+            0x08 | 0x09 => {
+                // ROM and RAM, with no switch
+
+                add_device!(rombanks.remove(0),
+                            bus::SimpleMapping::new(0x0000, 16 * KIB));
+
+                if !rombanks.is_empty() {
+                    add_device!(rombanks.remove(0),
+                                bus::SimpleMapping::new(0x4000, 16 * KIB));
+                }
+
+                add_device!(bus::RamBank::new(),
+                            bus::SimpleMapping::new(0xA000, 8 * KIB));
+            }
+            0x0B | 0x0C | 0x0D => {
+                unimplemented!("MMM01 not supported")
+            }
+
+            x => {
+                panic!("Unknown cartridge header type value: {:#04}", x);
+            }
+        }
         unimplemented!() // TODO
     }
 }
