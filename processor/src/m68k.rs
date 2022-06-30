@@ -156,7 +156,7 @@ impl Processor for M68K {
                 if insn & 0x0100 == 0 {
                     match insn & 0x0E00 {
                         0x0200 => {
-                            if insn == 0x023C || insn == 0x023C {
+                            if insn == 0x023C || insn == 0x027C {
                                 todo!("ANDI to SR");
                             }
                             let size = M68KSize::from_type_a((insn & 0x00C0) >> 6);
